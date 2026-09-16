@@ -1,0 +1,87 @@
+[
+  {
+    "id": "quiz-01",
+    "title": "Phishing Tactic Identification",
+    "type": "mcq",
+    "category": "Social Engineering",
+    "question": "An employee receives an urgent email from 'support@paypa1-security.com' claiming their account will be suspended within 1 hour unless they verify their password. Which two attack techniques are primarily being demonstrated?",
+    "options": [
+      "Typosquatting (Look-alike domain) and Pretexting with artificial urgency",
+      "Man-in-the-Middle (MitM) and ARP Poisoning",
+      "SQL Injection and Cross-Site Request Forgery (CSRF)",
+      "Zero-day privilege escalation and Buffer Overflow"
+    ],
+    "correct_option": 0,
+    "points": 50,
+    "active": true,
+    "explanation": "The domain 'paypa1' uses the digit 1 instead of the letter 'l' (typosquatting), and the 1-hour deadline creates artificial urgency to bypass critical thinking."
+  },
+  {
+    "id": "quiz-03",
+    "title": "Authentication Factor Types",
+    "type": "mcq",
+    "category": "Identity & Access",
+    "question": "In Multi-Factor Authentication (MFA), which of the following represents 'Something You Are' (Inherence factor)?",
+    "options": [
+      "A 6-digit SMS one-time passcode (OTP)",
+      "A hardware FIDO2 USB security key",
+      "A biometric fingerprint or facial recognition scan",
+      "A 16-character alphanumeric master password"
+    ],
+    "correct_option": 2,
+    "points": 50,
+    "active": true,
+    "explanation": "Biometrics (fingerprints, retina, face scans) represent 'something you are'. Passwords are 'something you know', and hardware keys/phones are 'something you have'."
+  },
+  {
+    "id": "quiz-04",
+    "title": "Ransomware Defense",
+    "type": "mcq",
+    "category": "Malware & Defense",
+    "question": "Which of the following backup strategies is considered the gold standard for surviving a destructive ransomware outbreak?",
+    "options": [
+      "Syncing files to a single shared network folder (SMB) with write access",
+      "The 3-2-1 Rule: 3 copies, on 2 different media types, with at least 1 copy stored offline or immutable",
+      "Relying solely on external hard drives continuously plugged into workstations",
+      "Creating weekly snapshots on the same primary virtual machine host"
+    ],
+    "correct_option": 1,
+    "points": 50,
+    "active": true,
+    "explanation": "The 3-2-1 backup strategy ensures at least one immutable or offline/air-gapped copy exists that ransomware cannot encrypt or delete over the network."
+  },
+  {
+    "id": "quiz-06",
+    "title": "Denial of Service Mechanisms",
+    "type": "mcq",
+    "category": "Network Security",
+    "question": "A Distributed Denial of Service (DDoS) attack utilizing thousands of compromised IoT smart cameras and routers coordinated by a Command & Control (C2) server is operating as a:",
+    "options": [
+      "Botnet",
+      "Honeypot",
+      "Reverse Proxy",
+      "Air Gap"
+    ],
+    "correct_option": 0,
+    "points": 50,
+    "active": true,
+    "explanation": "A network of malware-infected devices controlled remotely by an attacker is called a botnet (such as the infamous Mirai botnet)."
+  },
+  {
+    "id": "quiz-1789582612",
+    "title": "cyber attack and prevention",
+    "type": "mcq",
+    "category": "cyber attack",
+    "question": "What is phishing?",
+    "points": 1,
+    "active": true,
+    "explanation": "",
+    "options": [
+      "getting a high tech call",
+      "flooding with emails till the server stops responding",
+      "pretending to be legitimate online but actually making a fraud",
+      "none"
+    ],
+    "correct_option": 2
+  }
+]

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COMBINED LEADERBOARD - PROJECTOR VIEW</title>
+  <!-- 100% Offline: Zero CDNs -->
+  <link rel="stylesheet" href="/static/css/theme.css">
+  <style>
+    body {
+      background-color: #06090e;
+      padding: 24px;
+      font-size: 16px;
+    }
+    .projector-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--neon-green);
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+    .projector-title {
+      font-size: 2.1rem;
+      font-weight: 900;
+      color: var(--neon-green);
+      text-shadow: 0 0 20px rgba(0, 255, 102, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      letter-spacing: 2px;
+    }
+    .projector-clock {
+      font-size: 1.4rem;
+      color: var(--neon-cyan);
+      font-weight: bold;
+    }
+
+    /* Podium Display for Top 3 */
+    .podium-container {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr 1fr;
+      gap: 20px;
+      margin-bottom: 30px;
+      align-items: flex-end;
+    }
+    .podium-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+    }
+    .podium-1 {
+      border-color: #ffd700;
+      box-shadow: 0 0 30px rgba(255, 215, 0, 0.25);
+      transform: translateY(-10px);
+    }
+    .podium-2 {
+      border-color: #c0c0c0;
+      box-shadow: 0 0 20px rgba(192, 192, 192, 0.15);
+    }
+    .podium-3 {
+      border-color: #cd7f32;
+      box-shadow: 0 0 20px rgba(205, 127, 50, 0.15);
+    }
+    .podium-rank-badge {
+      font-size: 2.4rem;
+      font-weight: 900;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    .podium-team-name {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 6px;
+      word-break: break-word;
+    }
+    .podium-score {
+      font-size: 1.9rem;
+      font-weight: 900;
+      color: var(--neon-green);
+    }
+    .podium-breakdown {
+      display: inline-flex;
+      gap: 6px;
+      margin-top: 6px;
+      font-size: 0.82rem;
+    }
+
+    /* Big Projector Table */
+    .projector-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 1.15rem;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+    .projector-table th {
+      background: #0d1522;
+      color: var(--text-muted);
+      padding: 16px 20px;
+      font-size: 0.92rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .projector-table td {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .projector-table tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    /* Live Solves Activity Ticker */
+    .ticker-bar {
+      margin-top: 30px;
+      background: #0c121e;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .ticker-label {
+      background: var(--neon-green);
+      color: #000;
+      font-weight: 800;
+      font-size: 0.85rem;
+      padding: 4px 10px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .ticker-items {
+      display: flex;
+      gap: 20px;
+      overflow-x: hidden;
+      white-space: nowrap;
+      font-size: 0.95rem;
+      color: var(--neon-cyan);
+    }
+    .ticker-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Bar -->
+  <header class="projector-header">
+    <div class="projector-title">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+      </svg>
+      <span>WORKSHOP 2026 // COMBINED LIVE LEADERBOARD</span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 20px;">
+      <div class="projector-clock" id="clock">00:00:00</div>
+      <button class="btn-cyber" onclick="toggleFullScreen()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+        </svg>
+        Fullscreen
+      </button>
+      <a href="/api/export/csv" class="btn-cyber btn-cyan" download>
+        Export CSV
+      </a>
+    </div>
+  </header>
+
+  <!-- Top 3 Podium Cards -->
+  <div class="podium-container" id="podiumArea">
+    <!-- Rank 2 -->
+    <div class="podium-card podium-2" id="podium2">
+      <div class="podium-rank-badge" style="color: #c0c0c0;">2ND</div>
+      <div class="podium-team-name" id="podium2Name">-</div>
+      <div class="podium-score" id="podium2Score">0 pts</div>
+      <div class="podium-breakdown" id="podium2Breakdown">
+        <span class="badge badge-easy">Quiz: 0</span>
+        <span class="badge badge-cat">CTF: 0</span>
+      </div>
+    </div>
+
+    <!-- Rank 1 (Gold) -->
+    <div class="podium-card podium-1" id="podium1">
+      <div class="podium-rank-badge" style="color: #ffd700;">1ST</div>
+      <div class="podium-team-name" id="podium1Name" style="font-size: 1.7rem; color: #ffd700;">-</div>
+      <div class="podium-score" id="podium1Score" style="font-size: 2.2rem;">0 pts</div>
+      <div class="podium-breakdown" id="podium1Breakdown">
+        <span class="badge badge-easy">Quiz: 0</span>
+        <span class="badge badge-cat">CTF: 0</span>
+      </div>
+    </div>
+
+    <!-- Rank 3 -->
+    <div class="podium-card podium-3" id="podium3">
+      <div class="podium-rank-badge" style="color: #cd7f32;">3RD</div>
+      <div class="podium-team-name" id="podium3Name">-</div>
+      <div class="podium-score" id="podium3Score">0 pts</div>
+      <div class="podium-breakdown" id="podium3Breakdown">
+        <span class="badge badge-easy">Quiz: 0</span>
+        <span class="badge badge-cat">CTF: 0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Leaderboard Table -->
+  <table class="projector-table">
+    <thead>
+      <tr>
+        <th style="width: 80px;">Rank</th>
+        <th>Pod Name</th>
+        <th style="width: 170px;">Total Points</th>
+        <th style="width: 150px;">Saturday Quiz</th>
+        <th style="width: 150px;">Sunday CTF Net</th>
+        <th style="width: 130px;">Deductions</th>
+        <th style="width: 190px;">Last Activity</th>
+      </tr>
+    </thead>
+    <tbody id="projectorTableBody">
+      <tr>
+        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
+          Synchronizing with central command...
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Live Solves Activity Ticker -->
+  <div class="ticker-bar">
+    <div class="ticker-label">LIVE SOLVE FEED</div>
+    <div class="ticker-items" id="tickerContainer">
+      <span class="ticker-item" style="color: var(--text-muted);">Awaiting first solve...</span>
+    </div>
+  </div>
+
+  <script>
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Live Clock
+    function updateClock() {
+      const d = new Date();
+      document.getElementById('clock').textContent = d.toTimeString().split(' ')[0];
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Fullscreen toggle
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    function renderPodiumCard(num, item) {
+      const nameEl = document.getElementById(`podium${num}Name`);
+      const scoreEl = document.getElementById(`podium${num}Score`);
+      const breakEl = document.getElementById(`podium${num}Breakdown`);
+
+      if (item) {
+        nameEl.textContent = item.name;
+        scoreEl.textContent = `${item.total_score} pts`;
+        breakEl.innerHTML = `
+          <span class="badge badge-easy">Quiz: ${item.quiz_points} pts</span>
+          <span class="badge badge-cat">CTF: ${item.ctf_net} pts</span>
+        `;
+      } else {
+        nameEl.textContent = '-';
+        scoreEl.textContent = '0 pts';
+        breakEl.innerHTML = `
+          <span class="badge badge-easy">Quiz: 0</span>
+          <span class="badge badge-cat">CTF: 0</span>
+        `;
+      }
+    }
+
+    // Refresh Leaderboard Data
+    async function refreshProjector() {
+      try {
+        const res = await fetch('/api/leaderboard');
+        const data = await res.json();
+        const board = data.leaderboard || [];
+        const recent = data.recent_activity || [];
+
+        // Update Podium
+        renderPodiumCard(1, board[0]);
+        renderPodiumCard(2, board[1]);
+        renderPodiumCard(3, board[2]);
+
+        // Render Table
+        const tbody = document.getElementById('projectorTableBody');
+        if (board.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:30px;">No pods registered yet. Join via pod login!</td></tr>`;
+        } else {
+          tbody.innerHTML = board.map(item => {
+            let rankBadge = `#${item.rank}`;
+            let rankStyle = '';
+            if (item.rank === 1) rankStyle = 'color: #ffd700; font-weight: 900;';
+            else if (item.rank === 2) rankStyle = 'color: #c0c0c0; font-weight: 900;';
+            else if (item.rank === 3) rankStyle = 'color: #cd7f32; font-weight: 900;';
+
+            const lastAct = item.last_activity 
+              ? item.last_activity.split(' ')[1] || item.last_activity 
+              : '-';
+
+            return `
+              <tr>
+                <td style="${rankStyle}">${rankBadge}</td>
+                <td style="font-weight: 700; color: #fff; font-size: 1.25rem;">${escapeHtml(item.name)}</td>
+                <td style="color: var(--neon-green); font-weight: 900; font-size: 1.35rem;">${item.total_score} pts</td>
+                <td><span class="badge badge-easy" style="font-size:0.9rem;">${item.quiz_points} pts</span></td>
+                <td><span class="badge badge-cat" style="font-size:0.9rem;">${item.ctf_net} pts</span></td>
+                <td style="color: ${item.ctf_penalty > 0 ? 'var(--neon-amber)' : 'var(--text-muted)'};">-${item.ctf_penalty}</td>
+                <td style="color: var(--text-muted); font-size:0.95rem;">${escapeHtml(lastAct)}</td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        // Render Ticker
+        const ticker = document.getElementById('tickerContainer');
+        if (recent.length > 0) {
+          ticker.innerHTML = recent.map(r => `
+            <span class="ticker-item">
+              [+] <strong>${escapeHtml(r.team_name)}</strong> solved <em>"${escapeHtml(r.item_title)}"</em> (+${r.points} pts)
+            </span>
+          `).join(' &nbsp;•&nbsp; ');
+        }
+      } catch (err) {
+        console.error("Projector sync error:", err);
+      }
+    }
+
+    // Auto-refresh every 4 seconds
+    setInterval(refreshProjector, 4000);
+    refreshProjector();
+  </script>
+</body>
+</html>

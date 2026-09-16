@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Database temporary files
+*.db-wal
+*.db-shm
+ctf.db
+
+# Logs & Backups
+*.log
+workshop_results_*.csv
+
+# OS metadata
+.DS_Store
+Thumbs.db

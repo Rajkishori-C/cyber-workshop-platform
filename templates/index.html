@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CYBER DEFENSE WORKSHOP - QUIZ & CTF ARENA</title>
+  <!-- 100% Offline: Zero remote CDNs -->
+  <link rel="stylesheet" href="/static/css/theme.css">
+  <style>
+    .code-box {
+      background: #080c14;
+      border: 1px solid #243046;
+      border-left: 3px solid var(--neon-green);
+      padding: 12px 16px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--neon-cyan);
+      margin: 10px 0;
+      word-break: break-all;
+      user-select: all;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ======================================================================
+       DEVELOPER NOTE / WEB SECURITY CHALLENGE [web-01]
+       FLAG: CTF{h1dd3n_1n_th3_d0m_c0mm3nts}
+       ====================================================================== -->
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <a href="/" class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+      </svg>
+      <span>CYBER_WORKSHOP::v3.0</span>
+      <span class="cursor-blink"></span>
+    </a>
+
+    <div class="nav-controls">
+      <div class="team-badge">
+        <span>POD:</span>
+        <strong id="teamBadgeName">Not Joined</strong>
+        <span class="team-points" id="teamPointsVal">0 pts</span>
+      </div>
+
+      <button class="btn-cyber btn-cyan" id="btnChangeTeam" title="Join or Switch Pod">
+        Join Pod
+      </button>
+
+      <button class="btn-cyber" id="btnToggleSound" title="Toggle Synthesizer Sound">
+        Audio: ON
+      </button>
+
+      <a href="/projector" class="btn-cyber btn-green" target="_blank" title="Live Combined Scoreboard">
+        Projector View
+      </a>
+
+      <a href="/admin/login" class="btn-cyber" style="border-color: #555; color: #888;">
+        Organizer
+      </a>
+    </div>
+  </header>
+
+  <!-- Hero Banner -->
+  <section class="hero-banner">
+    <h1 class="hero-title">COLLEGE CYBERSECURITY <span>WORKSHOP</span></h1>
+    <p class="hero-sub">
+      2-Day Assessment: Saturday Knowledge Quiz + Sunday Hands-on CTF Challenges. 
+      All scores contribute to your pod's live combined ranking!
+    </p>
+
+    <!-- Section Switcher Tabs -->
+    <div class="section-nav">
+      <button class="section-nav-btn active" data-section="quiz">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <span>SATURDAY: QUIZ SECTION</span>
+        <span class="section-status-tag status-open" id="quizStatusTag">OPEN</span>
+      </button>
+
+      <button class="section-nav-btn" data-section="ctf">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+        <span>SUNDAY: CTF ARENA</span>
+        <span class="section-status-tag status-open" id="ctfStatusTag">OPEN</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Main Content Container -->
+  <main class="container">
+
+    <!-- ========================================================= -->
+    <!-- VIEW 1: SATURDAY QUIZ VIEW                                -->
+    <!-- ========================================================= -->
+    <section id="quizSectionView">
+      <div style="max-width: 850px; margin: 0 auto;">
+        <div style="background: rgba(0, 229, 255, 0.05); border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 6px; padding: 14px 20px; margin-bottom: 20px;">
+          <strong style="color: var(--neon-cyan);">📝 SATURDAY KNOWLEDGE QUIZ:</strong>
+          <span style="color: var(--text-muted); font-size: 0.9rem;">
+            Answer the multiple-choice and short-answer questions below. Each pod submits once; correct answers instantly boost your combined score!
+          </span>
+        </div>
+
+        <div id="quizQuestionsContainer">
+          <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+            Loading quiz questions...
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 2: SUNDAY CTF VIEW                                   -->
+    <!-- ========================================================= -->
+    <section id="ctfSectionView" style="display: none;">
+      <div style="max-width: 850px; margin: 0 auto;">
+        <div style="background: rgba(0, 255, 102, 0.05); border: 1px solid rgba(0, 255, 102, 0.25); border-radius: 6px; padding: 14px 20px; margin-bottom: 20px;">
+          <strong style="color: var(--neon-green);">🚩 SUNDAY HANDS-ON CTF:</strong>
+          <span style="color: var(--text-muted); font-size: 0.9rem;">
+            Inspect network logs, reverse ciphers, and find secret flags in <code>CTF{...}</code> format. Optional hints deduct a few points from your CTF score.
+          </span>
+        </div>
+
+        <div id="ctfQuestionsContainer">
+          <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+            Loading CTF challenges...
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- UNIFIED LIVE COMBINED LEADERBOARD                         -->
+    <!-- ========================================================= -->
+    <section class="leaderboard-section" style="max-width: 950px; margin: 50px auto 0 auto;">
+      <div class="section-header">
+        <h2 class="section-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+            <polyline points="17 6 23 6 23 12"></polyline>
+          </svg>
+          COMBINED WORKSHOP LEADERBOARD (LIVE)
+        </h2>
+        <a href="/api/export/csv" class="btn-cyber" download>
+          ⬇️ Export CSV
+        </a>
+      </div>
+
+      <div class="table-responsive">
+        <table class="lb-table">
+          <thead>
+            <tr>
+              <th style="width: 70px;">Rank</th>
+              <th>Pod Name</th>
+              <th style="width: 140px;">Total Score</th>
+              <th style="width: 220px;">Score Breakdown</th>
+              <th style="width: 130px;">Last Activity</th>
+            </tr>
+          </thead>
+          <tbody id="combinedLeaderboardBody">
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                Loading live standings...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: POD REGISTRATION                                   -->
+  <!-- ========================================================= -->
+  <div class="modal-overlay" id="teamModal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-title" style="color: var(--neon-cyan);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+        </svg>
+        JOIN WORKSHOP POD
+      </div>
+      <p class="modal-desc">
+        Enter your pod name and the <strong>Room Passcode</strong> written on your classroom whiteboard.
+      </p>
+
+      <form id="teamLoginForm">
+        <div style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">YOUR POD NAME</label>
+          <input 
+            type="text" 
+            id="teamNameInput" 
+            class="flag-input" 
+            style="width: 100%; font-size: 1rem;" 
+            placeholder="e.g. Pod 4 - CyberKnights" 
+            maxlength="30"
+            pattern="[a-zA-Z0-9 _\-]{2,30}"
+            required
+          >
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-size: 0.8rem; color: var(--neon-green); font-weight: bold; margin-bottom: 4px;">ROOM PASSCODE (FROM WHITEBOARD)</label>
+          <input 
+            type="text" 
+            id="roomCodeInput" 
+            class="flag-input" 
+            style="width: 100%; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 2px;" 
+            placeholder="e.g. WORKSHOP26" 
+            required
+          >
+        </div>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn-cyber btn-cyan" style="width: 100%; justify-content: center; padding: 10px; font-size: 1rem;">
+            Enter Arena
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-container"></div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
