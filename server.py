@@ -88,7 +88,7 @@ def get_section_status(section_name: str):
             "is_open": bool(enabled),
             "mode": "manual",
             "enabled": bool(enabled),
-            "message": "Open" if enabled else "Locked by Organizer"
+            "message": "Open" if enabled else f"{section_name.capitalize()} will be enabled by team"
         }
 
     # Scheduled mode
@@ -104,14 +104,14 @@ def get_section_status(section_name: str):
             "is_open": False,
             "mode": "scheduled",
             "start_time": start_str,
-            "message": f"Opens on {start_dt.strftime('%A at %I:%M %p')}"
+            "message": f"{section_name.capitalize()} will be enabled by team (Opens {start_dt.strftime('%A at %I:%M %p')})"
         }
     elif end_dt and now > end_dt:
         return {
             "is_open": False,
             "mode": "scheduled",
             "end_time": end_str,
-            "message": f"Closed on {end_dt.strftime('%A at %I:%M %p')}"
+            "message": f"{section_name.capitalize()} will be enabled by team"
         }
     else:
         return {
@@ -425,6 +425,25 @@ def record_violation():
         return jsonify({"success": True, "violations_count": v_count})
     finally:
         conn.close()
+
+@app.route("/api/team/status")
+def team_status():
+    team_name = request.args.get("team", "").strip()
+    if not team_name:
+        return jsonify({"exists": False})
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, start_time, violations_count FROM teams WHERE name = ? COLLATE NOCASE", (team_name,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"exists": False})
+    return jsonify({
+        "exists": True,
+        "name": row["name"],
+        "start_time": row["start_time"],
+        "violations_count": row["violations_count"]
+    })
 
 # -------------------------------------------------------------
 # Quiz Endpoints (Saturday Quiz)

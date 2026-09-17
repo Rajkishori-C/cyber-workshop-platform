@@ -2,10 +2,11 @@
  * 2-DAY WORKSHOP PLATFORM - CLIENT SCRIPT
  * Features:
  * - Saturday Quiz (MCQs + Short Answers) & Sunday CTF Arena
- * - Live Combined Leaderboard (Total Points = Quiz + CTF Net Score)
- * - Section Lock & Timing Status Checker
- * - Touch-Friendly Mobile UI
- * - Server-Side Verified Scoring
+ * - Real-Time Team Session Sync (Reflects Admin Deletions / Wipes Instantly)
+ * - Student Logout / Leave Pod
+ * - Fullscreen Lock & Tab-Switch Anti-Cheat Tracker
+ * - Closed Section Messaging ("Quiz / CTF will be enabled by team")
+ * - Combined Live Leaderboard with Anti-Cheat Violations
  */
 
 // State
@@ -15,6 +16,14 @@ let sectionsStatus = { quiz: { is_open: true }, ctf: { is_open: true } };
 let quizData = [];
 let challengesData = [];
 let soundEnabled = localStorage.getItem('ctf_sound') !== 'disabled';
+
+// Timer & Assessment State
+let assessmentStartTime = null;
+let timerDurationMinutes = 60;
+let timerInterval = null;
+let isAssessmentStarted = false;
+let violationCount = 0;
+let isHandlingViolation = false;
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -83,7 +92,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (currentTeam) {
     updateTeamUI(currentTeam);
+    await verifyCurrentTeam();
   } else {
+    updateTeamUI(null);
     showTeamModal();
   }
 
@@ -93,14 +104,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadLeaderboard();
 
   // Polling intervals
-  setInterval(loadLeaderboard, 6000);
-  setInterval(refreshSectionStatus, 10000);
+  setInterval(loadLeaderboard, 4000);
+  setInterval(refreshSectionStatus, 3000);
+  setInterval(verifyCurrentTeam, 5000);
 });
 
 function setupEventListeners() {
   // Section Navigation Tabs (Quiz vs CTF)
   document.querySelectorAll('.section-nav-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', () => {
       document.querySelectorAll('.section-nav-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentSection = btn.getAttribute('data-section');
@@ -124,8 +136,16 @@ function setupEventListeners() {
   // Change team button
   const changeBtn = document.getElementById('btnChangeTeam');
   if (changeBtn) {
-    changeBtn.addEventListener('click', () => {
-      showTeamModal();
+    changeBtn.addEventListener('click', () => showTeamModal());
+  }
+
+  // Student Logout button
+  const logoutBtn = document.getElementById('btnLogoutTeam');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      if (confirm(`Are you sure you want to log out of pod "${currentTeam}"?`)) {
+        logoutStudent("Logged out of pod.");
+      }
     });
   }
 
@@ -139,10 +159,43 @@ function setupEventListeners() {
       showToast(`Audio ${soundEnabled ? 'Enabled' : 'Muted'}`, 'info');
     });
   }
+
+  // Anti-Cheat: Fullscreen Change Listener
+  document.addEventListener('fullscreenchange', () => {
+    const isFull = !!document.fullscreenElement;
+    const badge = document.getElementById('fullscreenStatusBadge');
+    const reEnterBtn = document.getElementById('btnEnterFullscreen');
+
+    if (badge) {
+      badge.textContent = isFull ? '⛶ FULLSCREEN LOCKED' : '⚠️ FULLSCREEN EXITED';
+      badge.className = `badge ${isFull ? 'badge-easy' : 'badge-hard'}`;
+    }
+    if (reEnterBtn) {
+      reEnterBtn.style.display = isFull ? 'none' : 'inline-flex';
+    }
+
+    if (!isFull && isAssessmentStarted) {
+      triggerScreenViolation("Fullscreen mode exited");
+    }
+  });
+
+  // Anti-Cheat: Tab Visibility Listener
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && isAssessmentStarted) {
+      triggerScreenViolation("Tab switched or minimized");
+    }
+  });
+
+  // Anti-Cheat: Window Blur Listener
+  window.addEventListener('blur', () => {
+    if (isAssessmentStarted) {
+      triggerScreenViolation("Window focus lost");
+    }
+  });
 }
 
 // -------------------------------------------------------------
-// Team Registration & Room Code
+// Team Registration & Session Verification (Admin Wipe Reflection)
 // -------------------------------------------------------------
 function showTeamModal() {
   const modal = document.getElementById('teamModal');
@@ -168,9 +221,16 @@ async function registerTeam(name, roomCode) {
       updateTeamUI(currentTeam);
       closeTeamModal();
       showToast(`Welcome, ${escapeHtml(currentTeam)}!`, 'success');
-      loadQuizData();
-      loadCTFData();
-      loadLeaderboard();
+
+      if (data.start_time) {
+        initAssessmentTimer(data.start_time);
+      } else {
+        showStartAssessmentPrompt();
+      }
+
+      await loadQuizData();
+      await loadCTFData();
+      await loadLeaderboard();
     } else {
       showToast(data.message || 'Invalid Room Code or Name.', 'error');
     }
@@ -181,7 +241,181 @@ async function registerTeam(name, roomCode) {
 
 function updateTeamUI(name) {
   const badge = document.getElementById('teamBadgeName');
-  if (badge) badge.textContent = name;
+  const changeBtn = document.getElementById('btnChangeTeam');
+  const logoutBtn = document.getElementById('btnLogoutTeam');
+  const scoreVal = document.getElementById('teamPointsVal');
+
+  if (name) {
+    if (badge) badge.textContent = name;
+    if (changeBtn) changeBtn.style.display = 'none';
+    if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+  } else {
+    if (badge) badge.textContent = 'Not Joined';
+    if (scoreVal) scoreVal.textContent = '0 pts';
+    if (changeBtn) changeBtn.style.display = 'inline-flex';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    hideAssessmentUI();
+  }
+}
+
+function logoutStudent(toastMsg) {
+  currentTeam = '';
+  localStorage.removeItem('ctf_team');
+  isAssessmentStarted = false;
+  if (timerInterval) clearInterval(timerInterval);
+
+  updateTeamUI(null);
+  hideAssessmentUI();
+
+  if (toastMsg) showToast(toastMsg, 'info');
+  showTeamModal();
+
+  loadQuizData();
+  loadCTFData();
+  loadLeaderboard();
+}
+
+/**
+ * Checks if the current team still exists in the database.
+ * If the admin deleted the team or wiped all contestants,
+ * this automatically logs out the student and resets their view!
+ */
+async function verifyCurrentTeam() {
+  if (!currentTeam) return;
+  try {
+    const res = await fetch(`/api/team/status?team=${encodeURIComponent(currentTeam)}`);
+    const data = await res.json();
+    if (!data.exists) {
+      // Pod was deleted or wiped by admin!
+      logoutStudent("Your pod was cleared or reset by the event organizer. Please rejoin.");
+    } else if (data.start_time && !isAssessmentStarted) {
+      initAssessmentTimer(data.start_time);
+    }
+  } catch (err) {}
+}
+
+// -------------------------------------------------------------
+// Fullscreen & Assessment Timer Controls
+// -------------------------------------------------------------
+function showStartAssessmentPrompt() {
+  const card = document.getElementById('startAssessmentCard');
+  if (card && currentTeam && !isAssessmentStarted) {
+    card.style.display = 'block';
+  }
+}
+
+function hideAssessmentUI() {
+  const card = document.getElementById('startAssessmentCard');
+  const bar = document.getElementById('assessmentBar');
+  const violModal = document.getElementById('violationModal');
+  if (card) card.style.display = 'none';
+  if (bar) bar.style.display = 'none';
+  if (violModal) violModal.style.display = 'none';
+}
+
+function requestAssessmentFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+}
+
+async function startAssessmentWithFullscreen() {
+  if (!currentTeam) {
+    showTeamModal();
+    return;
+  }
+
+  requestAssessmentFullscreen();
+
+  try {
+    const res = await fetch('/api/team/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ team: currentTeam })
+    });
+    const data = await res.json();
+    if (data.success && data.start_time) {
+      initAssessmentTimer(data.start_time);
+      showToast("Assessment started! Fullscreen locked.", "success");
+    }
+  } catch (err) {
+    showToast("Error starting assessment", "error");
+  }
+}
+
+function initAssessmentTimer(startTimeStr) {
+  isAssessmentStarted = true;
+  assessmentStartTime = new Date(startTimeStr.replace(' ', 'T'));
+
+  const card = document.getElementById('startAssessmentCard');
+  const bar = document.getElementById('assessmentBar');
+  if (card) card.style.display = 'none';
+  if (bar) bar.style.display = 'block';
+
+  if (timerInterval) clearInterval(timerInterval);
+  updateCountdown();
+  timerInterval = setInterval(updateCountdown, 1000);
+}
+
+function updateCountdown() {
+  if (!assessmentStartTime) return;
+  const now = new Date();
+  const elapsedSeconds = Math.floor((now - assessmentStartTime) / 1000);
+  const totalSeconds = timerDurationMinutes * 60;
+  const remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds);
+
+  const mins = Math.floor(remainingSeconds / 60);
+  const secs = remainingSeconds % 60;
+  const timerEl = document.getElementById('assessmentCountdown');
+
+  if (timerEl) {
+    timerEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    if (remainingSeconds <= 300) {
+      timerEl.style.color = 'var(--neon-red)';
+    } else {
+      timerEl.style.color = 'var(--neon-green)';
+    }
+  }
+
+  if (remainingSeconds === 0) {
+    clearInterval(timerInterval);
+    showToast("Assessment time has expired!", "error");
+  }
+}
+
+async function triggerScreenViolation(reason) {
+  if (!currentTeam || !isAssessmentStarted || isHandlingViolation) return;
+  isHandlingViolation = true;
+
+  AudioSys.playError();
+  violationCount++;
+
+  try {
+    const res = await fetch('/api/team/violation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ team: currentTeam })
+    });
+    const data = await res.json();
+    if (data.success) {
+      violationCount = data.violations_count || violationCount;
+    }
+  } catch (e) {}
+
+  const modal = document.getElementById('violationModal');
+  const countText = document.getElementById('violationCountText');
+  if (countText) {
+    countText.textContent = `Violation #${violationCount} Recorded (${reason})`;
+  }
+  if (modal) modal.style.display = 'flex';
+
+  setTimeout(() => { isHandlingViolation = false; }, 1500);
+}
+
+function resumeAssessmentFullscreen() {
+  requestAssessmentFullscreen();
+  const modal = document.getElementById('violationModal');
+  if (modal) modal.style.display = 'none';
 }
 
 // -------------------------------------------------------------
@@ -190,24 +424,33 @@ function updateTeamUI(name) {
 async function refreshSectionStatus() {
   try {
     const res = await fetch('/api/sections/status');
-    sectionsStatus = await res.json();
+    const data = await res.json();
+    sectionsStatus = data;
+    if (data.timer_duration_minutes) {
+      timerDurationMinutes = data.timer_duration_minutes;
+    }
 
     const quizTag = document.getElementById('quizStatusTag');
     const ctfTag = document.getElementById('ctfStatusTag');
 
     if (quizTag) {
-      const open = sectionsStatus.quiz.is_open;
+      const open = sectionsStatus.quiz && sectionsStatus.quiz.is_open;
       quizTag.textContent = open ? 'OPEN' : 'LOCKED';
       quizTag.className = `section-status-tag ${open ? 'status-open' : 'status-locked'}`;
     }
 
     if (ctfTag) {
-      const open = sectionsStatus.ctf.is_open;
+      const open = sectionsStatus.ctf && sectionsStatus.ctf.is_open;
       ctfTag.textContent = open ? 'OPEN' : 'LOCKED';
       ctfTag.className = `section-status-tag ${open ? 'status-open' : 'status-locked'}`;
     }
 
-    switchSectionView(currentSection);
+    // Re-render current section view to reflect lock immediately
+    if (currentSection === 'quiz') {
+      renderQuiz();
+    } else {
+      renderCTF();
+    }
   } catch (err) {}
 }
 
@@ -234,31 +477,41 @@ async function loadQuizData() {
     const url = currentTeam ? `/api/quiz?team=${encodeURIComponent(currentTeam)}` : '/api/quiz';
     const res = await fetch(url);
     const data = await res.json();
-    quizData = data.questions || [];
+
+    if (data.locked) {
+      if (sectionsStatus.quiz) sectionsStatus.quiz.is_open = false;
+      quizData = [];
+    } else {
+      quizData = data.questions || [];
+    }
     renderQuiz();
   } catch (err) {}
 }
 
 function renderQuiz() {
   const container = document.getElementById('quizQuestionsContainer');
+  const infoBanner = document.getElementById('quizInfoBanner');
   if (!container) return;
 
-  // Check if Quiz section is locked
+  // Check if Quiz section is locked / closed
   if (sectionsStatus.quiz && !sectionsStatus.quiz.is_open) {
+    if (infoBanner) infoBanner.style.display = 'none';
     container.innerHTML = `
-      <div class="locked-section-card">
-        <svg class="locked-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-        </svg>
-        <h2 style="color: var(--neon-red); margin-bottom: 8px;">SATURDAY QUIZ SECTION IS LOCKED</h2>
-        <p style="color: var(--text-muted); font-size: 1rem;">
-          ${escapeHtml(sectionsStatus.quiz.message || 'This section is currently closed.')}
+      <div class="locked-section-card" style="text-align:center; padding: 45px 20px; background: #0c121e; border: 2px dashed var(--neon-cyan); border-radius: 8px;">
+        <div style="font-size: 3.2rem; margin-bottom: 12px;">🔒</div>
+        <h2 style="color: var(--neon-cyan); margin-bottom: 8px;">SATURDAY QUIZ SECTION IS CLOSED</h2>
+        <div class="badge badge-hard" style="font-size: 1.05rem; padding: 6px 18px; margin: 12px auto; display: inline-block;">
+          QUIZ WILL BE ENABLED BY TEAM
+        </div>
+        <p style="color: var(--text-muted); font-size: 1rem; max-width: 520px; margin: 0 auto;">
+          Please wait for the organizing mentors to open this section. Once enabled, questions will appear automatically!
         </p>
       </div>
     `;
     return;
   }
+
+  if (infoBanner) infoBanner.style.display = 'block';
 
   if (quizData.length === 0) {
     container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 40px;">No quiz questions available yet.</div>`;
@@ -441,30 +694,41 @@ async function loadCTFData() {
     const url = currentTeam ? `/api/challenges?team=${encodeURIComponent(currentTeam)}` : '/api/challenges';
     const res = await fetch(url);
     const data = await res.json();
-    challengesData = data.challenges || [];
+
+    if (data.locked) {
+      if (sectionsStatus.ctf) sectionsStatus.ctf.is_open = false;
+      challengesData = [];
+    } else {
+      challengesData = data.challenges || [];
+    }
     renderCTF();
   } catch (err) {}
 }
 
 function renderCTF() {
   const container = document.getElementById('ctfQuestionsContainer');
+  const infoBanner = document.getElementById('ctfInfoBanner');
   if (!container) return;
 
+  // Check if CTF section is locked / closed
   if (sectionsStatus.ctf && !sectionsStatus.ctf.is_open) {
+    if (infoBanner) infoBanner.style.display = 'none';
     container.innerHTML = `
-      <div class="locked-section-card">
-        <svg class="locked-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-        </svg>
-        <h2 style="color: var(--neon-red); margin-bottom: 8px;">SUNDAY CTF SECTION IS LOCKED</h2>
-        <p style="color: var(--text-muted); font-size: 1rem;">
-          ${escapeHtml(sectionsStatus.ctf.message || 'This section is currently closed.')}
+      <div class="locked-section-card" style="text-align:center; padding: 45px 20px; background: #0c121e; border: 2px dashed var(--neon-green); border-radius: 8px;">
+        <div style="font-size: 3.2rem; margin-bottom: 12px;">🔒</div>
+        <h2 style="color: var(--neon-green); margin-bottom: 8px;">SUNDAY CTF ARENA IS CLOSED</h2>
+        <div class="badge badge-hard" style="font-size: 1.05rem; padding: 6px 18px; margin: 12px auto; display: inline-block;">
+          CTF WILL BE ENABLED BY TEAM
+        </div>
+        <p style="color: var(--text-muted); font-size: 1rem; max-width: 520px; margin: 0 auto;">
+          Please wait for the organizing mentors to open this section. Once enabled, flag challenges will appear automatically!
         </p>
       </div>
     `;
     return;
   }
+
+  if (infoBanner) infoBanner.style.display = 'block';
 
   if (challengesData.length === 0) {
     container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 40px;">No CTF challenges available yet.</div>`;
@@ -608,12 +872,17 @@ async function loadLeaderboard() {
     const board = data.leaderboard || [];
     renderLeaderboard(board);
 
-    // Update pod score badge in header
+    // Check if current pod was deleted/wiped by organizer
     if (currentTeam) {
       const myPod = board.find(t => t.name.toLowerCase() === currentTeam.toLowerCase());
       const scoreBadge = document.getElementById('teamPointsVal');
-      if (scoreBadge && myPod) {
-        scoreBadge.textContent = `${myPod.total_score} pts (Quiz: ${myPod.quiz_points} | CTF: ${myPod.ctf_net})`;
+      if (myPod) {
+        if (scoreBadge) {
+          scoreBadge.textContent = `${myPod.total_score} pts (Quiz: ${myPod.quiz_points} | CTF: ${myPod.ctf_net})`;
+        }
+        if (myPod.violations_count !== undefined) {
+          violationCount = myPod.violations_count;
+        }
       }
     }
   } catch (err) {}
@@ -624,7 +893,7 @@ function renderLeaderboard(board) {
   if (!tbody) return;
 
   if (board.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:24px;">No pods registered yet. Join to see rankings!</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:24px;">No pods registered yet. Join to see rankings!</td></tr>`;
     return;
   }
 
@@ -636,6 +905,10 @@ function renderLeaderboard(board) {
     else if (item.rank === 3) rankClass = 'rank-3';
 
     const lastTime = item.last_activity ? item.last_activity.split(' ')[1] || item.last_activity : '-';
+    const vCount = item.violations_count || 0;
+    const vBadge = vCount > 0 
+      ? `<span class="badge badge-hard" style="font-size:0.75rem;">⚠️ ${vCount} Exit(s)</span>`
+      : `<span style="color:var(--neon-green); font-size:0.8rem;">✓ Clean</span>`;
 
     return `
       <tr class="${isMe ? 'team-current' : ''}">
@@ -653,6 +926,7 @@ function renderLeaderboard(board) {
             ${item.ctf_penalty > 0 ? `<span class="score-pill score-pill-penalty">-${item.ctf_penalty}</span>` : ''}
           </div>
         </td>
+        <td>${vBadge}</td>
         <td style="color: var(--text-muted); font-size: 0.85rem;">${escapeHtml(lastTime)}</td>
       </tr>
     `;
