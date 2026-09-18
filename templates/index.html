@@ -7,19 +7,6 @@
   <!-- 100% Offline: Zero remote CDNs -->
   <link rel="stylesheet" href="/static/css/theme.css">
   <style>
-    .code-box {
-      background: #080c14;
-      border: 1px solid #243046;
-      border-left: 3px solid var(--neon-green);
-      padding: 12px 16px;
-      border-radius: 4px;
-      font-family: var(--font-mono);
-      font-size: 0.9rem;
-      color: var(--neon-cyan);
-      margin: 10px 0;
-      word-break: break-all;
-      user-select: all;
-    }
     .assessment-bar {
       background: #0c1524;
       border-bottom: 2px solid var(--neon-cyan);
@@ -38,8 +25,7 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
       </svg>
-      <span>CYBER_WORKSHOP::v3.0</span>
-      <span class="cursor-blink"></span>
+      <span>CYBER_WORKSHOP::ARENA</span>
     </a>
 
     <div class="nav-controls">
@@ -56,18 +42,6 @@
       <button class="btn-cyber" id="btnLogoutTeam" style="border-color: var(--neon-red); color: var(--neon-red); display: none;" title="Logout of current pod">
         🚪 Logout Pod
       </button>
-
-      <button class="btn-cyber" id="btnToggleSound" title="Toggle Synthesizer Sound">
-        Audio: ON
-      </button>
-
-      <a href="/projector" class="btn-cyber btn-green" target="_blank" title="Live Combined Scoreboard">
-        Projector View
-      </a>
-
-      <a href="/admin" class="btn-cyber btn-cyan" title="Organizer Admin Panel">
-        ⚙️ Admin Dashboard
-      </a>
     </div>
   </header>
 
@@ -92,7 +66,7 @@
     <h1 class="hero-title">COLLEGE CYBERSECURITY <span>WORKSHOP</span></h1>
     <p class="hero-sub">
       2-Day Assessment: Saturday Knowledge Quiz + Sunday Hands-on CTF Challenges. 
-      All scores contribute to your pod's live combined ranking!
+      Solve tasks as a pod to rank up on the main hall projector screen!
     </p>
 
     <!-- Section Switcher Tabs -->
@@ -125,13 +99,13 @@
   <main class="container">
 
     <!-- Start Assessment Card (Prompt to enter fullscreen) -->
-    <div id="startAssessmentCard" style="display: none; max-width: 850px; margin: 20px auto; background: var(--bg-card); border: 2px solid var(--neon-cyan); border-radius: 8px; padding: 24px; text-align: center; box-shadow: 0 0 25px rgba(0, 240, 255, 0.15);">
-      <h2 style="color: var(--neon-cyan); margin-bottom: 8px;">🚀 READY TO BEGIN YOUR ASSESSMENT?</h2>
-      <p style="color: var(--text-bright); font-size: 0.95rem; max-width: 600px; margin: 0 auto 16px auto;">
+    <div id="startAssessmentCard" style="display: none; max-width: 850px; margin: 20px auto; background: var(--bg-card); border: 2px solid var(--neon-cyan); border-radius: 10px; padding: 28px; text-align: center; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);">
+      <h2 style="color: var(--neon-cyan); margin-bottom: 10px; font-size: 1.4rem;">🚀 READY TO BEGIN YOUR ASSESSMENT?</h2>
+      <p style="color: var(--text-bright); font-size: 1rem; max-width: 620px; margin: 0 auto 18px auto; line-height: 1.6;">
         Click below to enter <strong>Fullscreen Mode</strong> and start your pod's official timer.
-        <br><span style="color: var(--neon-amber); font-size: 0.85rem;">⚠️ Note: Exiting fullscreen or switching tabs logs an anti-cheat violation to the live leaderboard!</span>
+        <br><span style="color: var(--neon-amber); font-size: 0.9rem;">⚠️ Note: Exiting fullscreen or switching tabs logs an anti-cheat violation to the organizer leaderboard!</span>
       </p>
-      <button class="btn-cyber btn-green" style="font-size: 1.1rem; padding: 12px 28px; font-weight: bold;" onclick="startAssessmentWithFullscreen()">
+      <button class="btn-cyber btn-green" style="font-size: 1.1rem; padding: 14px 32px; font-weight: bold;" onclick="startAssessmentWithFullscreen()">
         ⚡ Start Assessment & Lock Fullscreen
       </button>
     </div>
@@ -141,10 +115,10 @@
     <!-- ========================================================= -->
     <section id="quizSectionView">
       <div style="max-width: 850px; margin: 0 auto;">
-        <div id="quizInfoBanner" style="background: rgba(0, 229, 255, 0.05); border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 6px; padding: 14px 20px; margin-bottom: 20px;">
+        <div id="quizInfoBanner" style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; display: none;">
           <strong style="color: var(--neon-cyan);">📝 SATURDAY KNOWLEDGE QUIZ:</strong>
-          <span style="color: var(--text-muted); font-size: 0.9rem;">
-            Answer the multiple-choice and short-answer questions below. Each pod submits once; correct answers instantly boost your combined score!
+          <span style="color: var(--text-muted); font-size: 0.95rem;">
+            Answer the multiple-choice and short-answer questions below. Each pod submits once; correct answers boost your combined score!
           </span>
         </div>
 
@@ -161,9 +135,9 @@
     <!-- ========================================================= -->
     <section id="ctfSectionView" style="display: none;">
       <div style="max-width: 850px; margin: 0 auto;">
-        <div id="ctfInfoBanner" style="background: rgba(0, 255, 102, 0.05); border: 1px solid rgba(0, 255, 102, 0.25); border-radius: 6px; padding: 14px 20px; margin-bottom: 20px;">
+        <div id="ctfInfoBanner" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; display: none;">
           <strong style="color: var(--neon-green);">🚩 SUNDAY HANDS-ON CTF:</strong>
-          <span style="color: var(--text-muted); font-size: 0.9rem;">
+          <span style="color: var(--text-muted); font-size: 0.95rem;">
             Inspect network logs, reverse ciphers, and find secret flags in <code>CTF{...}</code> format. Optional hints deduct points from your CTF score.
           </span>
         </div>
@@ -176,53 +150,54 @@
       </div>
     </section>
 
-    <!-- ========================================================= -->
-    <!-- UNIFIED LIVE COMBINED LEADERBOARD                         -->
-    <!-- ========================================================= -->
-    <section class="leaderboard-section" style="max-width: 950px; margin: 50px auto 0 auto;">
-      <div class="section-header">
-        <h2 class="section-title">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-            <polyline points="17 6 23 6 23 12"></polyline>
-          </svg>
-          COMBINED WORKSHOP LEADERBOARD (LIVE)
-        </h2>
-        <a href="/api/export/csv" class="btn-cyber" download>
-          ⬇️ Export CSV
-        </a>
-      </div>
-
-      <div class="table-responsive">
-        <table class="lb-table">
-          <thead>
-            <tr>
-              <th style="width: 60px;">Rank</th>
-              <th>Pod Name</th>
-              <th style="width: 130px;">Total Score</th>
-              <th style="width: 200px;">Score Breakdown</th>
-              <th style="width: 140px;">Anti-Cheat Status</th>
-              <th style="width: 120px;">Last Activity</th>
-            </tr>
-          </thead>
-          <tbody id="combinedLeaderboardBody">
-            <tr>
-              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
-                Loading live standings...
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
   </main>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: FRONT-DOOR ROLE SELECTION GATEWAY                  -->
+  <!-- ========================================================= -->
+  <div class="modal-overlay" id="roleGatewayModal" style="display: none;">
+    <div class="modal-card" style="max-width: 560px;">
+      <div class="modal-title" style="color: var(--neon-cyan); justify-content: center; text-align: center;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+        CYBER WORKSHOP ARENA
+      </div>
+      <p class="modal-desc" style="text-align: center;">
+        Welcome! Please select your role to proceed to the platform:
+      </p>
+
+      <div class="role-gateway-grid">
+        <div class="role-gateway-card" onclick="selectRole('student')">
+          <div class="role-icon">🎓</div>
+          <div class="role-card-title">Student Pod Entry</div>
+          <div class="role-card-desc">
+            Join or resume your participant pod using the whiteboard passcode to solve quizzes and capture flags.
+          </div>
+          <button type="button" class="btn-cyber btn-cyan" style="width: 100%;">
+            Enter as Student Pod
+          </button>
+        </div>
+
+        <div class="role-gateway-card admin-role" onclick="selectRole('admin')">
+          <div class="role-icon">🛡️</div>
+          <div class="role-card-title">Workshop Organizer</div>
+          <div class="role-card-desc">
+            Direct admin login to edit questions, control timers, manage pods, and view live standings.
+          </div>
+          <button type="button" class="btn-cyber btn-green" style="width: 100%;">
+            Organizer Admin &rarr;
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ========================================================= -->
   <!-- MODAL: ANTI-CHEAT FULLSCREEN VIOLATION OVERLAY            -->
   <!-- ========================================================= -->
   <div class="modal-overlay" id="violationModal" style="display: none; z-index: 10000; background: rgba(5, 8, 14, 0.97);">
-    <div class="modal-card" style="border: 2px solid var(--neon-red); box-shadow: 0 0 45px rgba(255, 51, 102, 0.4); text-align: center; max-width: 480px;">
+    <div class="modal-card" style="border: 2px solid var(--neon-red); box-shadow: 0 0 45px rgba(239, 68, 68, 0.4); text-align: center; max-width: 480px;">
       <div style="font-size: 3.2rem; margin-bottom: 6px;">⚠️</div>
       <div class="modal-title" style="color: var(--neon-red); justify-content: center; font-size: 1.35rem; margin-bottom: 10px;">
         ANTI-CHEAT SCREEN EXIT DETECTED!
@@ -230,9 +205,9 @@
       <p style="color: #fff; font-size: 0.95rem; margin-bottom: 16px; line-height: 1.5;">
         You exited fullscreen or switched away from the assessment window.
       </p>
-      <div style="background: rgba(255, 51, 102, 0.15); border: 1px solid var(--neon-red); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--neon-red); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
         <div style="color: var(--neon-red); font-weight: 900; font-size: 1.15rem;" id="violationCountText">VIOLATION RECORDED</div>
-        <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">Logged live on the Leaderboard & Projector Screen</div>
+        <div style="color: var(--text-muted); font-size: 0.82rem; margin-top: 4px;">Logged live on the Organizer Leaderboard & Projector Screen</div>
       </div>
       <button class="btn-cyber btn-cyan" style="width: 100%; justify-content: center; padding: 12px; font-size: 1.05rem; font-weight: bold;" onclick="resumeAssessmentFullscreen()">
         ⛶ Return to Fullscreen & Resume Assessment
@@ -257,8 +232,8 @@
       </p>
 
       <form id="teamLoginForm">
-        <div style="margin-bottom: 14px;">
-          <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">YOUR POD NAME</label>
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">YOUR POD NAME</label>
           <input 
             type="text" 
             id="teamNameInput" 
@@ -271,8 +246,8 @@
           >
         </div>
 
-        <div style="margin-bottom: 20px;">
-          <label style="display: block; font-size: 0.8rem; color: var(--neon-green); font-weight: bold; margin-bottom: 4px;">ROOM PASSCODE (FROM WHITEBOARD)</label>
+        <div style="margin-bottom: 22px;">
+          <label style="display: block; font-size: 0.85rem; color: var(--neon-green); font-weight: bold; margin-bottom: 6px;">ROOM PASSCODE (FROM WHITEBOARD)</label>
           <input 
             type="text" 
             id="roomCodeInput" 
@@ -283,10 +258,19 @@
           >
         </div>
 
-        <div class="modal-actions">
-          <button type="submit" class="btn-cyber btn-cyan" style="width: 100%; justify-content: center; padding: 10px; font-size: 1rem;">
+        <div class="modal-actions" style="flex-direction: column; gap: 10px;">
+          <button type="submit" class="btn-cyber btn-cyan" style="width: 100%; justify-content: center; padding: 12px; font-size: 1.05rem;">
             Enter Arena
           </button>
+          <button type="button" class="btn-cyber" style="width: 100%; justify-content: center; font-size: 0.9rem;" onclick="showRoleGateway()">
+            &larr; Back to Role Selection
+          </button>
+        </div>
+
+        <div style="text-align: center; margin-top: 18px;">
+          <a href="/admin/login" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none;">
+            Workshop Organizer? <span style="color: var(--neon-cyan); font-weight: 600;">Login to Admin Dashboard &rarr;</span>
+          </a>
         </div>
       </form>
     </div>

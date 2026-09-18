@@ -47,11 +47,11 @@ DEFAULT_SETTINGS = {
     "anti_cheat_enabled": True,
     "max_violations": 3,
     "quiz_mode": "manual",        # "manual" or "scheduled"
-    "quiz_enabled": True,
+    "quiz_enabled": False,
     "quiz_start_time": "2026-09-19T09:00",
     "quiz_end_time": "2026-09-19T21:00",
     "ctf_mode": "manual",         # "manual" or "scheduled"
-    "ctf_enabled": True,
+    "ctf_enabled": False,
     "ctf_start_time": "2026-09-20T09:00",
     "ctf_end_time": "2026-09-20T21:00"
 }
@@ -79,16 +79,17 @@ def get_section_status(section_name: str):
     """Evaluates whether a section ('quiz' or 'ctf') is currently open."""
     settings = load_settings()
     mode = settings.get(f"{section_name}_mode", "manual")
-    enabled = settings.get(f"{section_name}_enabled", True)
+    enabled = settings.get(f"{section_name}_enabled", False)
     start_str = settings.get(f"{section_name}_start_time", "")
     end_str = settings.get(f"{section_name}_end_time", "")
+    display_title = "CTF" if section_name.lower() == "ctf" else "Quiz"
 
     if mode == "manual":
         return {
             "is_open": bool(enabled),
             "mode": "manual",
             "enabled": bool(enabled),
-            "message": "Open" if enabled else f"{section_name.capitalize()} will be enabled by team"
+            "message": "Open" if enabled else f"{display_title} will be enabled by team"
         }
 
     # Scheduled mode
@@ -104,14 +105,14 @@ def get_section_status(section_name: str):
             "is_open": False,
             "mode": "scheduled",
             "start_time": start_str,
-            "message": f"{section_name.capitalize()} will be enabled by team (Opens {start_dt.strftime('%A at %I:%M %p')})"
+            "message": f"{display_title} will be enabled by team (Opens {start_dt.strftime('%A at %I:%M %p')})"
         }
     elif end_dt and now > end_dt:
         return {
             "is_open": False,
             "mode": "scheduled",
             "end_time": end_str,
-            "message": f"{section_name.capitalize()} will be enabled by team"
+            "message": f"{display_title} will be enabled by team"
         }
     else:
         return {

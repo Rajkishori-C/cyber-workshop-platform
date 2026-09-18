@@ -1,21 +1,21 @@
 /**
- * 2-DAY WORKSHOP PLATFORM - CLIENT SCRIPT
+ * 2-DAY CYBER WORKSHOP PLATFORM - CLIENT APPLICATION
  * Features:
- * - Saturday Quiz (MCQs + Short Answers) & Sunday CTF Arena
+ * - Role Selection Gateway (Student Pod vs Workshop Organizer)
+ * - Strict Fullscreen Gating (Questions 100% hidden until assessment starts)
  * - Real-Time Team Session Sync (Reflects Admin Deletions / Wipes Instantly)
  * - Student Logout / Leave Pod
  * - Fullscreen Lock & Tab-Switch Anti-Cheat Tracker
  * - Closed Section Messaging ("Quiz / CTF will be enabled by team")
- * - Combined Live Leaderboard with Anti-Cheat Violations
+ * - Personal Score and Standings Tracking
  */
 
 // State
 let currentTeam = localStorage.getItem('ctf_team') || '';
 let currentSection = 'quiz'; // 'quiz' or 'ctf'
-let sectionsStatus = { quiz: { is_open: true }, ctf: { is_open: true } };
+let sectionsStatus = { quiz: { is_open: false }, ctf: { is_open: false } };
 let quizData = [];
 let challengesData = [];
-let soundEnabled = localStorage.getItem('ctf_sound') !== 'disabled';
 
 // Timer & Assessment State
 let assessmentStartTime = null;
@@ -35,55 +35,6 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-// Audio Synthesizer
-const AudioSys = {
-  ctx: null,
-  init() {
-    if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
-      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-  },
-  playSuccess() {
-    if (!soundEnabled) return;
-    this.init();
-    if (!this.ctx) return;
-    try {
-      const now = this.ctx.currentTime;
-      [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(f, now + i * 0.08);
-        gain.gain.setValueAtTime(0.15, now + i * 0.08);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.25);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now + i * 0.08);
-        osc.stop(now + i * 0.08 + 0.25);
-      });
-    } catch (e) {}
-  },
-  playError() {
-    if (!soundEnabled) return;
-    this.init();
-    if (!this.ctx) return;
-    try {
-      const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(150, now);
-      osc.frequency.exponentialRampToValueAtTime(70, now + 0.25);
-      gain.gain.setValueAtTime(0.2, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.25);
-    } catch (e) {}
-  }
-};
-
 // -------------------------------------------------------------
 // Initialization
 // -------------------------------------------------------------
@@ -95,16 +46,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     await verifyCurrentTeam();
   } else {
     updateTeamUI(null);
-    showTeamModal();
+    showRoleGateway();
   }
 
   await refreshSectionStatus();
   await loadQuizData();
   await loadCTFData();
-  await loadLeaderboard();
+  await updatePodScore();
 
   // Polling intervals
-  setInterval(loadLeaderboard, 4000);
+  setInterval(updatePodScore, 4000);
   setInterval(refreshSectionStatus, 3000);
   setInterval(verifyCurrentTeam, 5000);
 });
@@ -136,7 +87,7 @@ function setupEventListeners() {
   // Change team button
   const changeBtn = document.getElementById('btnChangeTeam');
   if (changeBtn) {
-    changeBtn.addEventListener('click', () => showTeamModal());
+    changeBtn.addEventListener('click', () => showRoleGateway());
   }
 
   // Student Logout button
@@ -146,17 +97,6 @@ function setupEventListeners() {
       if (confirm(`Are you sure you want to log out of pod "${currentTeam}"?`)) {
         logoutStudent("Logged out of pod.");
       }
-    });
-  }
-
-  // Audio toggle
-  const soundBtn = document.getElementById('btnToggleSound');
-  if (soundBtn) {
-    soundBtn.addEventListener('click', () => {
-      soundEnabled = !soundEnabled;
-      localStorage.setItem('ctf_sound', soundEnabled ? 'enabled' : 'disabled');
-      soundBtn.textContent = soundEnabled ? 'Audio: ON' : 'Audio: MUTED';
-      showToast(`Audio ${soundEnabled ? 'Enabled' : 'Muted'}`, 'info');
     });
   }
 
@@ -195,9 +135,33 @@ function setupEventListeners() {
 }
 
 // -------------------------------------------------------------
+// Role Gateway Controls
+// -------------------------------------------------------------
+function showRoleGateway() {
+  closeTeamModal();
+  const modal = document.getElementById('roleGatewayModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeRoleGateway() {
+  const modal = document.getElementById('roleGatewayModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function selectRole(role) {
+  if (role === 'admin') {
+    window.location.href = '/admin/login';
+  } else {
+    closeRoleGateway();
+    showTeamModal();
+  }
+}
+
+// -------------------------------------------------------------
 // Team Registration & Session Verification (Admin Wipe Reflection)
 // -------------------------------------------------------------
 function showTeamModal() {
+  closeRoleGateway();
   const modal = document.getElementById('teamModal');
   if (modal) modal.style.display = 'flex';
 }
@@ -220,17 +184,16 @@ async function registerTeam(name, roomCode) {
       localStorage.setItem('ctf_team', currentTeam);
       updateTeamUI(currentTeam);
       closeTeamModal();
+      closeRoleGateway();
       showToast(`Welcome, ${escapeHtml(currentTeam)}!`, 'success');
 
       if (data.start_time) {
         initAssessmentTimer(data.start_time);
-      } else {
-        showStartAssessmentPrompt();
       }
 
       await loadQuizData();
       await loadCTFData();
-      await loadLeaderboard();
+      await updatePodScore();
     } else {
       showToast(data.message || 'Invalid Room Code or Name.', 'error');
     }
@@ -268,11 +231,10 @@ function logoutStudent(toastMsg) {
   hideAssessmentUI();
 
   if (toastMsg) showToast(toastMsg, 'info');
-  showTeamModal();
+  showRoleGateway();
 
   loadQuizData();
   loadCTFData();
-  loadLeaderboard();
 }
 
 /**
@@ -297,18 +259,22 @@ async function verifyCurrentTeam() {
 // -------------------------------------------------------------
 // Fullscreen & Assessment Timer Controls
 // -------------------------------------------------------------
-function showStartAssessmentPrompt() {
+function showStartAssessmentCard() {
   const card = document.getElementById('startAssessmentCard');
   if (card && currentTeam && !isAssessmentStarted) {
     card.style.display = 'block';
   }
 }
 
-function hideAssessmentUI() {
+function hideStartAssessmentCard() {
   const card = document.getElementById('startAssessmentCard');
+  if (card) card.style.display = 'none';
+}
+
+function hideAssessmentUI() {
+  hideStartAssessmentCard();
   const bar = document.getElementById('assessmentBar');
   const violModal = document.getElementById('violationModal');
-  if (card) card.style.display = 'none';
   if (bar) bar.style.display = 'none';
   if (violModal) violModal.style.display = 'none';
 }
@@ -321,7 +287,7 @@ function requestAssessmentFullscreen() {
 
 async function startAssessmentWithFullscreen() {
   if (!currentTeam) {
-    showTeamModal();
+    showRoleGateway();
     return;
   }
 
@@ -337,6 +303,8 @@ async function startAssessmentWithFullscreen() {
     if (data.success && data.start_time) {
       initAssessmentTimer(data.start_time);
       showToast("Assessment started! Fullscreen locked.", "success");
+      renderQuiz();
+      renderCTF();
     }
   } catch (err) {
     showToast("Error starting assessment", "error");
@@ -347,14 +315,20 @@ function initAssessmentTimer(startTimeStr) {
   isAssessmentStarted = true;
   assessmentStartTime = new Date(startTimeStr.replace(' ', 'T'));
 
-  const card = document.getElementById('startAssessmentCard');
+  hideStartAssessmentCard();
   const bar = document.getElementById('assessmentBar');
-  if (card) card.style.display = 'none';
   if (bar) bar.style.display = 'block';
 
   if (timerInterval) clearInterval(timerInterval);
   updateCountdown();
   timerInterval = setInterval(updateCountdown, 1000);
+
+  // Render questions now that assessment is started
+  if (currentSection === 'quiz') {
+    renderQuiz();
+  } else {
+    renderCTF();
+  }
 }
 
 function updateCountdown() {
@@ -387,7 +361,6 @@ async function triggerScreenViolation(reason) {
   if (!currentTeam || !isAssessmentStarted || isHandlingViolation) return;
   isHandlingViolation = true;
 
-  AudioSys.playError();
   violationCount++;
 
   try {
@@ -493,24 +466,58 @@ function renderQuiz() {
   const infoBanner = document.getElementById('quizInfoBanner');
   if (!container) return;
 
-  // Check if Quiz section is locked / closed
-  if (sectionsStatus.quiz && !sectionsStatus.quiz.is_open) {
+  // 1. Check if Quiz section is locked / closed
+  if (!sectionsStatus.quiz || !sectionsStatus.quiz.is_open) {
     if (infoBanner) infoBanner.style.display = 'none';
+    hideStartAssessmentCard();
     container.innerHTML = `
-      <div class="locked-section-card" style="text-align:center; padding: 45px 20px; background: #0c121e; border: 2px dashed var(--neon-cyan); border-radius: 8px;">
-        <div style="font-size: 3.2rem; margin-bottom: 12px;">🔒</div>
-        <h2 style="color: var(--neon-cyan); margin-bottom: 8px;">SATURDAY QUIZ SECTION IS CLOSED</h2>
+      <div class="locked-section-card">
+        <div class="locked-icon">🔒</div>
+        <h2 style="color: var(--text-bright); margin-bottom: 8px;">SATURDAY QUIZ SECTION IS CLOSED</h2>
         <div class="badge badge-hard" style="font-size: 1.05rem; padding: 6px 18px; margin: 12px auto; display: inline-block;">
           QUIZ WILL BE ENABLED BY TEAM
         </div>
         <p style="color: var(--text-muted); font-size: 1rem; max-width: 520px; margin: 0 auto;">
-          Please wait for the organizing mentors to open this section. Once enabled, questions will appear automatically!
+          Please wait for the workshop mentors to open this section. Once enabled, you will be able to start your assessment!
         </p>
       </div>
     `;
     return;
   }
 
+  // 2. Section is open, but pod not joined
+  if (!currentTeam) {
+    if (infoBanner) infoBanner.style.display = 'none';
+    hideStartAssessmentCard();
+    container.innerHTML = `
+      <div class="locked-section-card">
+        <div class="locked-icon">👥</div>
+        <h2 style="color: var(--text-bright); margin-bottom: 8px;">JOIN YOUR POD TO BEGIN</h2>
+        <p style="color: var(--text-muted); font-size: 1rem; max-width: 520px; margin: 12px auto;">
+          Please enter with your pod name and whiteboard room passcode to view questions.
+        </p>
+        <button class="btn-cyber btn-cyan" onclick="showTeamModal()" style="margin-top: 12px; font-size: 1rem; padding: 10px 24px;">
+          Join Workshop Pod
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  // 3. Section is open, pod joined, but assessment NOT started in fullscreen
+  if (!isAssessmentStarted) {
+    if (infoBanner) infoBanner.style.display = 'none';
+    showStartAssessmentCard();
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); padding: 30px 20px; font-size: 1rem;">
+        🔒 Questions are locked until you click <strong>"Start Assessment & Lock Fullscreen"</strong> above.
+      </div>
+    `;
+    return;
+  }
+
+  // 4. Assessment is active and fullscreen started
+  hideStartAssessmentCard();
   if (infoBanner) infoBanner.style.display = 'block';
 
   if (quizData.length === 0) {
@@ -571,7 +578,7 @@ function renderQuiz() {
         `;
       } else {
         statusBanner = `
-          <div style="background: rgba(255, 51, 102, 0.15); border: 1px solid var(--neon-red); color: var(--neon-red); padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.82rem; margin-bottom: 10px; display: inline-flex; align-items: center; gap: 6px;">
+          <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--neon-red); color: var(--neon-red); padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.85rem; margin-bottom: 10px; display: inline-flex; align-items: center; gap: 6px;">
             ✕ INCORRECT (0 PTS)
           </div>
         `;
@@ -581,14 +588,14 @@ function renderQuiz() {
     let explanationHtml = '';
     if (isAnswered && q.explanation) {
       explanationHtml = `
-        <div style="background: #0f1826; border: 1px solid #24344d; padding: 10px 14px; border-radius: 4px; font-size: 0.85rem; color: #a0b6d4; margin-top: 10px;">
+        <div style="background: #101726; border: 1px solid var(--border-color); padding: 12px 16px; border-radius: 6px; font-size: 0.9rem; color: #a5b4fc; margin-top: 12px;">
           <strong>Explanation:</strong> ${escapeHtml(q.explanation)}
         </div>
       `;
     }
 
     return `
-      <div class="challenge-card ${isAnswered ? (isCorrect ? 'solved' : '') : ''}" id="card-${q.id}" style="margin-bottom: 20px;">
+      <div class="challenge-card ${isAnswered ? (isCorrect ? 'solved' : '') : ''}" id="card-${q.id}">
         <div class="card-header">
           <div class="card-tags">
             <span class="badge badge-cat" style="font-weight: 800;">QUIZ #${idx + 1}</span>
@@ -601,7 +608,7 @@ function renderQuiz() {
         <div class="card-title">${escapeHtml(q.title)}</div>
         ${statusBanner}
 
-        <div class="card-desc" style="font-size: 0.95rem; line-height: 1.6;">
+        <div class="card-desc">
           ${escapeHtml(q.question)}
         </div>
 
@@ -609,7 +616,7 @@ function renderQuiz() {
           ${inputHtml}
           ${explanationHtml}
 
-          <div style="margin-top: 14px;">
+          <div style="margin-top: 16px;">
             <button type="submit" class="btn-cyber btn-cyan" ${isAnswered ? 'disabled' : ''}>
               ${isAnswered ? 'Submitted' : 'Submit Answer'}
             </button>
@@ -668,14 +675,12 @@ async function handleQuizSubmit(event, questionId, qType) {
     const data = await res.json();
     if (data.success) {
       if (data.is_correct) {
-        AudioSys.playSuccess();
         showToast(data.message, 'success');
       } else {
-        AudioSys.playError();
         showToast(data.message, 'error');
       }
       await loadQuizData();
-      await loadLeaderboard();
+      await updatePodScore();
     } else {
       showToast(data.message || 'Error submitting answer.', 'error');
       if (btn) btn.disabled = false;
@@ -710,24 +715,58 @@ function renderCTF() {
   const infoBanner = document.getElementById('ctfInfoBanner');
   if (!container) return;
 
-  // Check if CTF section is locked / closed
-  if (sectionsStatus.ctf && !sectionsStatus.ctf.is_open) {
+  // 1. Check if CTF section is locked / closed
+  if (!sectionsStatus.ctf || !sectionsStatus.ctf.is_open) {
     if (infoBanner) infoBanner.style.display = 'none';
+    hideStartAssessmentCard();
     container.innerHTML = `
-      <div class="locked-section-card" style="text-align:center; padding: 45px 20px; background: #0c121e; border: 2px dashed var(--neon-green); border-radius: 8px;">
-        <div style="font-size: 3.2rem; margin-bottom: 12px;">🔒</div>
-        <h2 style="color: var(--neon-green); margin-bottom: 8px;">SUNDAY CTF ARENA IS CLOSED</h2>
+      <div class="locked-section-card">
+        <div class="locked-icon">🔒</div>
+        <h2 style="color: var(--text-bright); margin-bottom: 8px;">SUNDAY CTF ARENA IS CLOSED</h2>
         <div class="badge badge-hard" style="font-size: 1.05rem; padding: 6px 18px; margin: 12px auto; display: inline-block;">
           CTF WILL BE ENABLED BY TEAM
         </div>
         <p style="color: var(--text-muted); font-size: 1rem; max-width: 520px; margin: 0 auto;">
-          Please wait for the organizing mentors to open this section. Once enabled, flag challenges will appear automatically!
+          Please wait for the workshop mentors to open this section. Once enabled, flag challenges will appear automatically!
         </p>
       </div>
     `;
     return;
   }
 
+  // 2. Section is open, but pod not joined
+  if (!currentTeam) {
+    if (infoBanner) infoBanner.style.display = 'none';
+    hideStartAssessmentCard();
+    container.innerHTML = `
+      <div class="locked-section-card">
+        <div class="locked-icon">👥</div>
+        <h2 style="color: var(--text-bright); margin-bottom: 8px;">JOIN YOUR POD TO BEGIN</h2>
+        <p style="color: var(--text-muted); font-size: 1rem; max-width: 520px; margin: 12px auto;">
+          Please enter with your pod name and whiteboard room passcode to view challenges.
+        </p>
+        <button class="btn-cyber btn-cyan" onclick="showTeamModal()" style="margin-top: 12px; font-size: 1rem; padding: 10px 24px;">
+          Join Workshop Pod
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  // 3. Section is open, pod joined, but assessment NOT started in fullscreen
+  if (!isAssessmentStarted) {
+    if (infoBanner) infoBanner.style.display = 'none';
+    showStartAssessmentCard();
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); padding: 30px 20px; font-size: 1rem;">
+        🔒 Challenges are locked until you click <strong>"Start Assessment & Lock Fullscreen"</strong> above.
+      </div>
+    `;
+    return;
+  }
+
+  // 4. Assessment is active and fullscreen started
+  hideStartAssessmentCard();
   if (infoBanner) infoBanner.style.display = 'block';
 
   if (challengesData.length === 0) {
@@ -742,14 +781,14 @@ function renderCTF() {
     if (ch.has_hint) {
       if (ch.hint_unlocked && ch.hint) {
         hintHtml = `
-          <div style="background:#1a1708; border:1px dashed var(--neon-amber); color:#ffdf80; padding:8px 12px; border-radius:4px; font-size:0.85rem; margin:12px 0;">
+          <div style="background:#1f190a; border:1px dashed var(--neon-amber); color:#fef3c7; padding:10px 14px; border-radius:6px; font-size:0.9rem; margin:14px 0;">
             <strong>[!] HINT:</strong> ${escapeHtml(ch.hint)}
           </div>
         `;
       } else {
         hintHtml = `
-          <div style="margin: 10px 0;">
-            <button type="button" class="btn-cyber" style="border-color: var(--neon-amber); color: var(--neon-amber); font-size:0.8rem;" onclick="unlockCTFHint('${escapeHtml(ch.id)}')">
+          <div style="margin: 12px 0;">
+            <button type="button" class="btn-cyber" style="border-color: var(--neon-amber); color: var(--neon-amber); font-size:0.85rem;" onclick="unlockCTFHint('${escapeHtml(ch.id)}')">
               Unlock Hint (-${ch.hint_cost} pts)
             </button>
           </div>
@@ -758,7 +797,7 @@ function renderCTF() {
     }
 
     return `
-      <div class="challenge-card ${isSolved ? 'solved' : ''}" id="ctf-card-${ch.id}" style="margin-bottom: 20px;">
+      <div class="challenge-card ${isSolved ? 'solved' : ''}" id="ctf-card-${ch.id}">
         <div class="card-header">
           <div class="card-tags">
             <span class="badge badge-cat" style="font-weight: 800;">CTF #${idx + 1}</span>
@@ -777,13 +816,13 @@ function renderCTF() {
           FLAG CAPTURED (+${ch.points} PTS)
         </div>
 
-        <div class="card-desc" style="font-size: 0.95rem; line-height: 1.6;">
+        <div class="card-desc">
           ${ch.description}
         </div>
 
         ${hintHtml}
 
-        <form class="submit-group" style="margin-top: 14px;" onsubmit="handleCTFSubmit(event, '${escapeHtml(ch.id)}')">
+        <form class="submit-group" style="margin-top: 16px;" onsubmit="handleCTFSubmit(event, '${escapeHtml(ch.id)}')">
           <input 
             type="text" 
             class="flag-input" 
@@ -830,12 +869,10 @@ async function handleCTFSubmit(event, challengeId) {
     });
     const data = await res.json();
     if (data.success) {
-      AudioSys.playSuccess();
       showToast(data.message, 'success');
       await loadCTFData();
-      await loadLeaderboard();
+      await updatePodScore();
     } else {
-      AudioSys.playError();
       showToast(data.message, 'error');
       if (btn) btn.disabled = false;
     }
@@ -857,80 +894,32 @@ async function unlockCTFHint(challengeId) {
     if (data.success) {
       showToast(`Hint unlocked! (-${data.penalty} pts)`, 'info');
       await loadCTFData();
-      await loadLeaderboard();
+      await updatePodScore();
     }
   } catch (err) {}
 }
 
 // -------------------------------------------------------------
-// Combined Leaderboard
+// Pod Standings & Score Sync (Leaderboard is for Organizer/Projector)
 // -------------------------------------------------------------
-async function loadLeaderboard() {
+async function updatePodScore() {
+  if (!currentTeam) return;
   try {
     const res = await fetch('/api/leaderboard');
     const data = await res.json();
     const board = data.leaderboard || [];
-    renderLeaderboard(board);
 
-    // Check if current pod was deleted/wiped by organizer
-    if (currentTeam) {
-      const myPod = board.find(t => t.name.toLowerCase() === currentTeam.toLowerCase());
-      const scoreBadge = document.getElementById('teamPointsVal');
-      if (myPod) {
-        if (scoreBadge) {
-          scoreBadge.textContent = `${myPod.total_score} pts (Quiz: ${myPod.quiz_points} | CTF: ${myPod.ctf_net})`;
-        }
-        if (myPod.violations_count !== undefined) {
-          violationCount = myPod.violations_count;
-        }
+    const myPod = board.find(t => t.name.toLowerCase() === currentTeam.toLowerCase());
+    const scoreBadge = document.getElementById('teamPointsVal');
+    if (myPod) {
+      if (scoreBadge) {
+        scoreBadge.textContent = `${myPod.total_score} pts (Quiz: ${myPod.quiz_points} | CTF: ${myPod.ctf_net})`;
+      }
+      if (myPod.violations_count !== undefined) {
+        violationCount = myPod.violations_count;
       }
     }
   } catch (err) {}
-}
-
-function renderLeaderboard(board) {
-  const tbody = document.getElementById('combinedLeaderboardBody');
-  if (!tbody) return;
-
-  if (board.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:24px;">No pods registered yet. Join to see rankings!</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = board.map(item => {
-    const isMe = currentTeam && item.name.toLowerCase() === currentTeam.toLowerCase();
-    let rankClass = '';
-    if (item.rank === 1) rankClass = 'rank-1';
-    else if (item.rank === 2) rankClass = 'rank-2';
-    else if (item.rank === 3) rankClass = 'rank-3';
-
-    const lastTime = item.last_activity ? item.last_activity.split(' ')[1] || item.last_activity : '-';
-    const vCount = item.violations_count || 0;
-    const vBadge = vCount > 0 
-      ? `<span class="badge badge-hard" style="font-size:0.75rem;">⚠️ ${vCount} Exit(s)</span>`
-      : `<span style="color:var(--neon-green); font-size:0.8rem;">✓ Clean</span>`;
-
-    return `
-      <tr class="${isMe ? 'team-current' : ''}">
-        <td class="${rankClass}">#${item.rank}</td>
-        <td style="font-weight: 700; color: ${isMe ? 'var(--neon-cyan)' : 'var(--text-bright)'};">
-          ${escapeHtml(item.name)} ${isMe ? '<span style="font-size:0.75rem; color:var(--neon-cyan);">(YOU)</span>' : ''}
-        </td>
-        <td style="color: var(--neon-green); font-weight: 900; font-size: 1.15rem;">
-          ${item.total_score} pts
-        </td>
-        <td>
-          <div class="score-pill-group">
-            <span class="score-pill score-pill-quiz">Quiz: ${item.quiz_points}</span>
-            <span class="score-pill score-pill-ctf">CTF: ${item.ctf_net}</span>
-            ${item.ctf_penalty > 0 ? `<span class="score-pill score-pill-penalty">-${item.ctf_penalty}</span>` : ''}
-          </div>
-        </td>
-        <td>${vBadge}</td>
-        <td style="color: var(--text-muted); font-size: 0.85rem;">${escapeHtml(lastTime)}</td>
-      </tr>
-    `;
-  }).join('');
 }
 
 function showToast(message, type = 'info') {

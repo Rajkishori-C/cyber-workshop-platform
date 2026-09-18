@@ -5,11 +5,11 @@
   "anti_cheat_enabled": true,
   "max_violations": 3,
   "quiz_mode": "manual",
-  "quiz_enabled": true,
+  "quiz_enabled": false,
   "quiz_start_time": "2026-09-19T09:00",
   "quiz_end_time": "2026-09-19T21:00",
   "ctf_mode": "manual",
-  "ctf_enabled": true,
+  "ctf_enabled": false,
   "ctf_start_time": "2026-09-20T09:00",
   "ctf_end_time": "2026-09-20T21:00"
 }

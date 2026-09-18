@@ -56,6 +56,14 @@ class AssessmentTestSuite(unittest.TestCase):
         settings["ctf_enabled"] = True
         save_settings(settings)
 
+    @classmethod
+    def tearDownClass(cls):
+        # Reset settings to safe closed-by-default state
+        settings = load_settings()
+        settings["quiz_enabled"] = False
+        settings["ctf_enabled"] = False
+        save_settings(settings)
+
     def test_01_room_passcode_verification(self):
         """Ensure only teams with the valid whiteboard room passcode can join."""
         settings = load_settings()
