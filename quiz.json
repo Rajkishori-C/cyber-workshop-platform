@@ -18,17 +18,18 @@
   },
   {
     "id": "quiz-02",
-    "title": "Secure Web Port Identification",
+    "title": "Secure Web Traffic Port",
     "type": "short_answer",
-    "category": "Network Security",
-    "question": "What is the standard TCP port number used for encrypted HTTPS web traffic? (Enter port number only)",
+    "category": "Networking",
+    "question": "What is the standard default TCP port number used for secure HTTPS encrypted web traffic?",
     "accepted_answers": [
       "443",
-      "port 443"
+      "port 443",
+      "tcp 443"
     ],
     "points": 50,
     "active": true,
-    "explanation": "Port 443 is the standard port for HTTPS (HTTP over TLS/SSL). Unencrypted HTTP uses port 80."
+    "explanation": "Port 443 is the standard port for HTTPS (HTTP over TLS/SSL)."
   },
   {
     "id": "quiz-03",

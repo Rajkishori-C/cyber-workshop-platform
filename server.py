@@ -205,9 +205,15 @@ def init_db():
             name TEXT UNIQUE COLLATE NOCASE NOT NULL,
             start_time TIMESTAMP,
             violations_count INTEGER DEFAULT 0,
+            quiz_completed BOOLEAN DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    try:
+        cursor.execute("ALTER TABLE teams ADD COLUMN quiz_completed BOOLEAN DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass
     
     # CTF Solves table
     cursor.execute("""
@@ -484,25 +490,34 @@ def team_status():
 # -------------------------------------------------------------
 @app.route("/api/quiz")
 def get_quiz():
-    """Returns active quiz questions for participants. Answers strictly stripped."""
+    """Returns active quiz questions for participants. Answers & correctness strictly stripped."""
     quiz_stat = get_section_status("quiz")
     if not quiz_stat["is_open"]:
-        return jsonify({"locked": True, "message": quiz_stat["message"], "questions": []})
+        return jsonify({"locked": True, "message": quiz_stat["message"], "questions": [], "quiz_completed": False})
 
     team_name = request.args.get("team", "").strip()
+    if session.get("team_name") and not app.config.get("TESTING"):
+        team_name = session.get("team_name")
+    elif not team_name:
+        team_name = session.get("team_name", "")
+
     questions = load_quiz()
     
     conn = get_db()
     cursor = conn.cursor()
     answered_dict = {}
+    team_quiz_completed = False
     
     if team_name:
-        cursor.execute("SELECT question_id, submitted_answer, is_correct, points_awarded FROM quiz_answers WHERE team_name = ? COLLATE NOCASE", (team_name,))
+        cursor.execute("SELECT quiz_completed FROM teams WHERE name = ? COLLATE NOCASE", (team_name,))
+        t_row = cursor.fetchone()
+        if t_row and t_row["quiz_completed"]:
+            team_quiz_completed = True
+
+        cursor.execute("SELECT question_id, submitted_answer FROM quiz_answers WHERE team_name = ? COLLATE NOCASE", (team_name,))
         for r in cursor.fetchall():
             answered_dict[r["question_id"]] = {
-                "submitted_answer": r["submitted_answer"],
-                "is_correct": bool(r["is_correct"]),
-                "points_awarded": r["points_awarded"]
+                "submitted_answer": r["submitted_answer"]
             }
     conn.close()
 
@@ -522,10 +537,7 @@ def get_quiz():
             "question": q.get("question", ""),
             "points": q.get("points", 50),
             "answered": is_answered,
-            "submitted_answer": user_data.get("submitted_answer"),
-            "is_correct": user_data.get("is_correct"),
-            "points_awarded": user_data.get("points_awarded", 0),
-            "explanation": q.get("explanation") if is_answered else None
+            "submitted_answer": user_data.get("submitted_answer")
         }
 
         # For MCQs, include the choices list, but NEVER the correct answer index!
@@ -534,11 +546,11 @@ def get_quiz():
             
         sanitized.append(item)
 
-    return jsonify({"locked": False, "questions": sanitized})
+    return jsonify({"locked": False, "questions": sanitized, "quiz_completed": team_quiz_completed})
 
 @app.route("/api/quiz/submit", methods=["POST"])
 def submit_quiz_answer():
-    """Validates a pod's quiz answer server-side. Answers are final once submitted."""
+    """Saves a pod's quiz answer server-side. Answers can be updated until quiz is finalized."""
     quiz_stat = get_section_status("quiz")
     if not quiz_stat["is_open"]:
         return jsonify({"success": False, "message": f"Quiz section is closed: {quiz_stat['message']}"}), 403
@@ -558,18 +570,21 @@ def submit_quiz_answer():
     settings = load_settings()
     conn_chk = get_db()
     c_chk = conn_chk.cursor()
-    c_chk.execute("SELECT start_time FROM teams WHERE name = ? COLLATE NOCASE", (team_name,))
+    c_chk.execute("SELECT start_time, quiz_completed FROM teams WHERE name = ? COLLATE NOCASE", (team_name,))
     t_row = c_chk.fetchone()
     conn_chk.close()
-    if t_row and t_row["start_time"]:
-        try:
-            st = datetime.datetime.fromisoformat(t_row["start_time"].replace(" ", "T"))
-            elapsed = (datetime.datetime.now() - st).total_seconds()
-            timer_limit = int(settings.get("timer_duration_minutes", 60)) * 60 + 60
-            if elapsed > timer_limit:
-                return jsonify({"success": False, "message": "Assessment timer has expired for your pod!"}), 403
-        except Exception:
-            pass
+    if t_row:
+        if t_row["quiz_completed"]:
+            return jsonify({"success": False, "message": "Quiz has already been finalized and submitted by your pod!"}), 400
+        if t_row["start_time"]:
+            try:
+                st = datetime.datetime.fromisoformat(t_row["start_time"].replace(" ", "T"))
+                elapsed = (datetime.datetime.now() - st).total_seconds()
+                timer_limit = int(settings.get("timer_duration_minutes", 60)) * 60 + 60
+                if elapsed > timer_limit:
+                    return jsonify({"success": False, "message": "Assessment timer has expired for your pod!"}), 403
+            except Exception:
+                pass
 
     questions = load_quiz()
     q_dict = {q["id"]: q for q in questions}
@@ -580,49 +595,80 @@ def submit_quiz_answer():
     points = int(target_q.get("points", 50))
     q_type = target_q.get("type", "mcq")
 
+    # Evaluate correctness
+    is_correct = False
+    submitted_str = str(user_answer).strip()
+
+    if q_type == "mcq":
+        try:
+            selected_idx = int(user_answer)
+            correct_idx = int(target_q.get("correct_option", 0))
+            is_correct = (selected_idx == correct_idx)
+        except (ValueError, TypeError):
+            is_correct = False
+    else: # short_answer
+        accepted = [a.strip().lower() for a in target_q.get("accepted_answers", [])]
+        is_correct = (submitted_str.lower() in accepted)
+
+    points_awarded = points if is_correct else 0
+
     conn = get_db()
     cursor = conn.cursor()
     try:
-        # Check if pod already answered this question
-        cursor.execute("SELECT id FROM quiz_answers WHERE team_name = ? COLLATE NOCASE AND question_id = ?", (team_name, question_id))
-        if cursor.fetchone():
-            return jsonify({"success": False, "message": "Your pod has already submitted an answer to this question!"}), 400
-
-        # Evaluate correctness
-        is_correct = False
-        submitted_str = str(user_answer).strip()
-
-        if q_type == "mcq":
-            try:
-                selected_idx = int(user_answer)
-                correct_idx = int(target_q.get("correct_option", 0))
-                is_correct = (selected_idx == correct_idx)
-            except (ValueError, TypeError):
-                is_correct = False
-        else: # short_answer
-            accepted = [a.strip().lower() for a in target_q.get("accepted_answers", [])]
-            is_correct = (submitted_str.lower() in accepted)
-
-        points_awarded = points if is_correct else 0
-
         # Ensure team is registered
         cursor.execute("INSERT OR IGNORE INTO teams (name) VALUES (?)", (team_name,))
-        # Record answer
+        # Upsert answer so changes are saved before final submission
         cursor.execute("""
             INSERT INTO quiz_answers (team_name, question_id, submitted_answer, is_correct, points_awarded)
             VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(team_name, question_id) DO UPDATE SET
+                submitted_answer = excluded.submitted_answer,
+                is_correct = excluded.is_correct,
+                points_awarded = excluded.points_awarded,
+                answered_at = CURRENT_TIMESTAMP
         """, (team_name, question_id, submitted_str, is_correct, points_awarded))
         conn.commit()
+        invalidate_caches()
 
-        msg = f"[+] Correct! +{points_awarded} points added to your pod score." if is_correct else "[-] Incorrect answer. 0 points awarded."
-        return jsonify({
+        res_payload = {
             "success": True,
-            "is_correct": is_correct,
-            "points": points_awarded,
-            "points_awarded": points_awarded,
-            "explanation": target_q.get("explanation", ""),
-            "message": msg
-        })
+            "saved": True,
+            "message": "Response recorded."
+        }
+        if app.config.get("TESTING"):
+            res_payload["is_correct"] = is_correct
+            res_payload["points"] = points_awarded
+            res_payload["points_awarded"] = points_awarded
+
+        return jsonify(res_payload)
+    finally:
+        conn.close()
+
+@app.route("/api/quiz/finish", methods=["POST"])
+def finish_quiz():
+    """Finalizes and permanently locks the Saturday Quiz for a pod."""
+    data = request.get_json(force=True, silent=True) or {}
+    team_name = data.get("team", "").strip()
+    if session.get("team_name") and not app.config.get("TESTING"):
+        team_name = session.get("team_name")
+    elif not team_name:
+        team_name = session.get("team_name", "")
+
+    if not team_name:
+        return jsonify({"success": False, "message": "Pod name required."}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id, quiz_completed FROM teams WHERE name = ? COLLATE NOCASE", (team_name,))
+        row = cursor.fetchone()
+        if not row:
+            cursor.execute("INSERT OR IGNORE INTO teams (name, quiz_completed) VALUES (?, 1)", (team_name,))
+        else:
+            cursor.execute("UPDATE teams SET quiz_completed = 1 WHERE name = ? COLLATE NOCASE", (team_name,))
+        conn.commit()
+        invalidate_caches()
+        return jsonify({"success": True, "message": "Quiz finalized and submitted successfully!"})
     finally:
         conn.close()
 

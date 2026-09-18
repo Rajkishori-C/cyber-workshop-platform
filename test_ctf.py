@@ -198,7 +198,7 @@ class AssessmentTestSuite(unittest.TestCase):
         print("[+] PASS: CSV export verified.")
 
     def test_10_quiz_retrieval_and_answer_stripping(self):
-        """Ensure participant quiz endpoint does NOT reveal correct answers or explanation."""
+        """Ensure participant quiz endpoint does NOT reveal correct answers, correctness, or explanation."""
         res = self.client.get('/api/quiz?team=Pod_Alpha_01')
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
@@ -209,7 +209,9 @@ class AssessmentTestSuite(unittest.TestCase):
         for q in questions:
             self.assertNotIn("correct_option", q, f"Correct option leaked in {q.get('id')}")
             self.assertNotIn("accepted_answers", q, f"Accepted answers leaked in {q.get('id')}")
-        print("[+] PASS: Quiz answer key stripping verified.")
+            self.assertNotIn("explanation", q, f"Explanation leaked in {q.get('id')}")
+            self.assertNotIn("is_correct", q, f"Correctness leaked in {q.get('id')}")
+        print("[+] PASS: Quiz answer key and correctness stripping verified.")
 
     def test_11_quiz_mcq_submission(self):
         """Test submitting correct MCQ choice on Saturday Quiz."""
@@ -244,8 +246,14 @@ class AssessmentTestSuite(unittest.TestCase):
         print("[+] PASS: Quiz short-answer case-insensitive submission verified.")
 
     def test_13_quiz_duplicate_submission_prevention(self):
-        """Ensure a pod cannot submit an answer to the same question twice."""
+        """Ensure a pod cannot submit an answer after finalizing the quiz."""
         team = "Pod_Alpha_01"
+        # 1. Finalize quiz
+        fin_res = self.client.post('/api/quiz/finish', json={"team": team})
+        self.assertEqual(fin_res.status_code, 200)
+        self.assertTrue(fin_res.get_json()["success"])
+
+        # 2. Attempt to submit again after finalization
         res = self.client.post('/api/quiz/submit', json={
             "team": team,
             "question_id": "quiz-01",
@@ -254,8 +262,8 @@ class AssessmentTestSuite(unittest.TestCase):
         self.assertEqual(res.status_code, 400)
         data = res.get_json()
         self.assertFalse(data["success"])
-        self.assertIn("already submitted", data["message"].lower())
-        print("[+] PASS: Quiz duplicate submission prevention verified.")
+        self.assertIn("already", data["message"].lower())
+        print("[+] PASS: Quiz finalization and submission lock verified.")
 
     def test_14_combined_leaderboard_scoring(self):
         """Verify combined leaderboard math: Total = Quiz Points + max(0, CTF Gross - CTF Deductions)."""

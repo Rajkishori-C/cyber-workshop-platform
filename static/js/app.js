@@ -213,7 +213,6 @@ function updateTeamUI(name) {
   const badge = document.getElementById('teamBadgeName');
   const changeBtn = document.getElementById('btnChangeTeam');
   const logoutBtn = document.getElementById('btnLogoutTeam');
-  const scoreVal = document.getElementById('teamPointsVal');
 
   if (name) {
     if (badge) badge.textContent = name;
@@ -221,7 +220,6 @@ function updateTeamUI(name) {
     if (logoutBtn) logoutBtn.style.display = 'inline-flex';
   } else {
     if (badge) badge.textContent = 'Not Joined';
-    if (scoreVal) scoreVal.textContent = '0 pts';
     if (changeBtn) changeBtn.style.display = 'inline-flex';
     if (logoutBtn) logoutBtn.style.display = 'none';
     hideAssessmentUI();
@@ -361,6 +359,9 @@ function updateCountdown() {
   if (remainingSeconds === 0) {
     clearInterval(timerInterval);
     showToast("Assessment time has expired!", "error");
+    if (!quizCompletedState && currentSection === 'quiz') {
+      submitFinalQuizAuto();
+    }
   }
 }
 
@@ -452,6 +453,8 @@ function switchSectionView(section) {
 // -------------------------------------------------------------
 // Quiz Section (Saturday)
 // -------------------------------------------------------------
+let quizCompletedState = false;
+
 async function loadQuizData() {
   try {
     const url = currentTeam ? `/api/quiz?team=${encodeURIComponent(currentTeam)}` : '/api/quiz';
@@ -463,6 +466,7 @@ async function loadQuizData() {
       quizData = [];
     } else {
       quizData = data.questions || [];
+      quizCompletedState = Boolean(data.quiz_completed);
     }
     renderQuiz();
   } catch (err) {}
@@ -532,9 +536,23 @@ function renderQuiz() {
     return;
   }
 
-  container.innerHTML = quizData.map((q, idx) => {
+  const answeredCount = quizData.filter(q => q.answered).length;
+
+  let completionBanner = '';
+  if (quizCompletedState) {
+    completionBanner = `
+      <div style="background: rgba(16, 185, 129, 0.12); border: 2px solid var(--neon-green); border-radius: 10px; padding: 22px; text-align: center; margin-bottom: 24px;">
+        <div style="font-size: 2.2rem; margin-bottom: 6px;">🎉</div>
+        <h3 style="color: var(--neon-green); margin-bottom: 6px; font-size: 1.25rem;">QUIZ FINALIZED & SUBMITTED</h3>
+        <p style="color: var(--text-bright); font-size: 0.95rem; margin: 0;">
+          All responses have been submitted for your pod. Standings will be announced on the auditorium projector!
+        </p>
+      </div>
+    `;
+  }
+
+  const cardsHtml = quizData.map((q, idx) => {
     const isAnswered = q.answered;
-    const isCorrect = q.is_correct;
 
     let inputHtml = '';
     if (q.type === 'mcq') {
@@ -547,8 +565,8 @@ function renderQuiz() {
               name="quiz_choice_${q.id}" 
               value="${optIdx}" 
               ${isChecked ? 'checked' : ''} 
-              ${isAnswered ? 'disabled' : ''}
-              onchange="handleMcqSelect('${q.id}', this)"
+              ${quizCompletedState ? 'disabled' : ''}
+              onchange="handleMcqSelect('${q.id}', ${optIdx})"
             >
             <span>${escapeHtml(opt)}</span>
           </label>
@@ -556,60 +574,59 @@ function renderQuiz() {
       }).join('') + `</div>`;
     } else {
       inputHtml = `
-        <div style="margin: 14px 0;">
+        <div style="margin: 14px 0; display: flex; gap: 10px; flex-wrap: wrap;">
           <input 
             type="text" 
             id="quiz_text_${q.id}" 
             class="flag-input" 
-            style="width: 100%; font-size: 1rem;" 
+            style="flex: 1; min-width: 220px; font-size: 1rem;" 
             placeholder="Type your answer..." 
             value="${isAnswered ? escapeHtml(q.submitted_answer) : ''}" 
-            ${isAnswered ? 'disabled' : ''}
+            ${quizCompletedState ? 'disabled' : ''}
             autocomplete="off"
-            required
+            onblur="handleShortAnswerSave('${q.id}', false)"
           >
+          <button 
+            type="button" 
+            class="btn-cyber btn-cyan" 
+            style="padding: 10px 18px; font-size: 0.9rem;"
+            ${quizCompletedState ? 'disabled' : ''} 
+            onclick="handleShortAnswerSave('${q.id}', true)"
+          >
+            Save
+          </button>
         </div>
       `;
     }
 
     let statusBanner = '';
     if (isAnswered) {
-      if (isCorrect) {
-        statusBanner = `
-          <div class="solved-banner" style="display:inline-flex; margin-bottom: 10px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            CORRECT ANSWER (+${q.points_awarded} PTS)
-          </div>
-        `;
-      } else {
-        statusBanner = `
-          <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--neon-red); color: var(--neon-red); padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.85rem; margin-bottom: 10px; display: inline-flex; align-items: center; gap: 6px;">
-            ✕ INCORRECT (0 PTS)
-          </div>
-        `;
-      }
-    }
-
-    let explanationHtml = '';
-    if (isAnswered && q.explanation) {
-      explanationHtml = `
-        <div style="background: #101726; border: 1px solid var(--border-color); padding: 12px 16px; border-radius: 6px; font-size: 0.9rem; color: #a5b4fc; margin-top: 12px;">
-          <strong>Explanation:</strong> ${escapeHtml(q.explanation)}
+      statusBanner = `
+        <div class="quiz-save-status" style="margin-bottom: 10px;">
+          <span class="badge" style="background: rgba(56, 189, 248, 0.12); color: var(--neon-cyan); border: 1px solid var(--neon-cyan); font-weight: 600; padding: 4px 10px;">
+            ✓ Response Recorded
+          </span>
+        </div>
+      `;
+    } else {
+      statusBanner = `
+        <div class="quiz-save-status" style="margin-bottom: 10px;">
+          <span class="badge" style="background: rgba(148, 163, 184, 0.1); color: var(--text-muted); border: 1px solid rgba(148, 163, 184, 0.25); padding: 4px 10px;">
+            Not answered yet
+          </span>
         </div>
       `;
     }
 
     return `
-      <div class="challenge-card ${isAnswered ? (isCorrect ? 'solved' : '') : ''}" id="card-${q.id}">
+      <div class="challenge-card" id="card-${q.id}">
         <div class="card-header">
           <div class="card-tags">
             <span class="badge badge-cat" style="font-weight: 800;">QUIZ #${idx + 1}</span>
             <span class="badge badge-cat">${escapeHtml(q.category)}</span>
             <span class="badge badge-easy">${q.type === 'mcq' ? 'Multiple Choice' : 'Short Answer'}</span>
           </div>
-          <div class="points-pill">+${q.points} pts</div>
+          <div class="points-pill">${q.points} pts</div>
         </div>
 
         <div class="card-title">${escapeHtml(q.title)}</div>
@@ -619,55 +636,54 @@ function renderQuiz() {
           ${escapeHtml(q.question)}
         </div>
 
-        <form onsubmit="handleQuizSubmit(event, '${q.id}', '${q.type}')">
+        <div>
           ${inputHtml}
-          ${explanationHtml}
-
-          <div style="margin-top: 16px;">
-            <button type="submit" class="btn-cyber btn-cyan" ${isAnswered ? 'disabled' : ''}>
-              ${isAnswered ? 'Submitted' : 'Submit Answer'}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     `;
   }).join('');
+
+  let finishCard = '';
+  if (!quizCompletedState) {
+    finishCard = `
+      <div style="background: var(--bg-card); border: 2px solid var(--neon-cyan); border-radius: 12px; padding: 26px; text-align: center; margin: 30px auto; max-width: 650px; box-shadow: 0 8px 30px rgba(0,0,0,0.4);">
+        <h3 style="color: var(--neon-cyan); margin-bottom: 8px; font-size: 1.3rem;">🏁 READY TO SUBMIT YOUR QUIZ?</h3>
+        <p id="quizProgressText" style="color: var(--text-bright); font-size: 1rem; margin-bottom: 18px;">
+          Answered: <strong>${answeredCount} / ${quizData.length}</strong> questions
+        </p>
+        <button class="btn-cyber btn-green" style="font-size: 1.1rem; padding: 14px 38px; font-weight: bold; width: 100%; max-width: 380px; margin: 0 auto;" onclick="confirmFinishQuiz()">
+          ⚡ Final Submit Quiz
+        </button>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 12px; margin-bottom: 0;">
+          ⚠️ Once you click Final Submit, your answers are permanently locked and cannot be changed!
+        </p>
+      </div>
+    `;
+  }
+
+  container.innerHTML = completionBanner + cardsHtml + finishCard;
 }
 
-function handleMcqSelect(qid, input) {
+async function handleMcqSelect(qid, optIdx) {
+  if (!currentTeam || quizCompletedState) return;
+
   const card = document.getElementById(`card-${qid}`);
-  if (!card) return;
-  card.querySelectorAll('.mcq-option-label').forEach(lbl => lbl.classList.remove('selected'));
-  input.closest('.mcq-option-label').classList.add('selected');
-}
-
-async function handleQuizSubmit(event, questionId, qType) {
-  event.preventDefault();
-  if (!currentTeam) {
-    showToast('Please join your pod first!', 'error');
-    showTeamModal();
-    return;
+  if (card) {
+    card.querySelectorAll('.mcq-option-label').forEach(lbl => lbl.classList.remove('selected'));
+    const input = card.querySelector(`input[value="${optIdx}"]`);
+    if (input) input.closest('.mcq-option-label').classList.add('selected');
+    
+    const statusBox = card.querySelector('.quiz-save-status');
+    if (statusBox) {
+      statusBox.innerHTML = `<span class="badge" style="background: rgba(56,189,248,0.15); color: var(--neon-cyan); border: 1px solid var(--neon-cyan);">Saving...</span>`;
+    }
   }
 
-  let answerVal = null;
-  if (qType === 'mcq') {
-    const selected = document.querySelector(`input[name="quiz_choice_${questionId}"]:checked`);
-    if (!selected) {
-      showToast('Please select an option before submitting.', 'error');
-      return;
-    }
-    answerVal = parseInt(selected.value);
-  } else {
-    const input = document.getElementById(`quiz_text_${questionId}`);
-    if (!input || !input.value.trim()) {
-      showToast('Please enter an answer before submitting.', 'error');
-      return;
-    }
-    answerVal = input.value.trim();
+  const qObj = quizData.find(q => q.id === qid);
+  if (qObj) {
+    qObj.answered = true;
+    qObj.submitted_answer = optIdx;
   }
-
-  const btn = event.target.querySelector('button[type="submit"]');
-  if (btn) btn.disabled = true;
 
   try {
     const res = await fetch('/api/quiz/submit', {
@@ -675,27 +691,129 @@ async function handleQuizSubmit(event, questionId, qType) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         team: currentTeam,
-        question_id: questionId,
-        answer: answerVal
+        question_id: qid,
+        answer: optIdx
       })
     });
     const data = await res.json();
     if (data.success) {
-      if (data.is_correct) {
-        showToast(data.message, 'success');
-      } else {
-        showToast(data.message, 'error');
+      if (card) {
+        const statusBox = card.querySelector('.quiz-save-status');
+        if (statusBox) {
+          statusBox.innerHTML = `<span class="badge" style="background: rgba(56,189,248,0.15); color: var(--neon-cyan); border: 1px solid var(--neon-cyan);">✓ Response Recorded</span>`;
+        }
       }
-      await loadQuizData();
-      await updatePodScore();
+      updateQuizProgressCount();
     } else {
-      showToast(data.message || 'Error submitting answer.', 'error');
-      if (btn) btn.disabled = false;
+      showToast(data.message || 'Error saving answer', 'error');
     }
   } catch (err) {
-    showToast('Failed to submit answer.', 'error');
-    if (btn) btn.disabled = false;
+    showToast('Network error saving answer', 'error');
   }
+}
+
+async function handleShortAnswerSave(qid, showToastMsg) {
+  if (!currentTeam || quizCompletedState) return;
+  const input = document.getElementById(`quiz_text_${qid}`);
+  if (!input) return;
+  const textVal = input.value.trim();
+  if (!textVal) return;
+
+  const card = document.getElementById(`card-${qid}`);
+  if (card) {
+    const statusBox = card.querySelector('.quiz-save-status');
+    if (statusBox) {
+      statusBox.innerHTML = `<span class="badge" style="background: rgba(56,189,248,0.15); color: var(--neon-cyan); border: 1px solid var(--neon-cyan);">Saving...</span>`;
+    }
+  }
+
+  const qObj = quizData.find(q => q.id === qid);
+  if (qObj) {
+    qObj.answered = true;
+    qObj.submitted_answer = textVal;
+  }
+
+  try {
+    const res = await fetch('/api/quiz/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        team: currentTeam,
+        question_id: qid,
+        answer: textVal
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (card) {
+        const statusBox = card.querySelector('.quiz-save-status');
+        if (statusBox) {
+          statusBox.innerHTML = `<span class="badge" style="background: rgba(56,189,248,0.15); color: var(--neon-cyan); border: 1px solid var(--neon-cyan);">✓ Response Recorded</span>`;
+        }
+      }
+      if (showToastMsg) showToast('Answer saved!', 'success');
+      updateQuizProgressCount();
+    } else {
+      showToast(data.message || 'Error saving answer', 'error');
+    }
+  } catch (err) {
+    showToast('Network error saving answer', 'error');
+  }
+}
+
+function updateQuizProgressCount() {
+  const progressEl = document.getElementById('quizProgressText');
+  if (progressEl) {
+    const answeredCount = quizData.filter(q => q.answered).length;
+    progressEl.innerHTML = `Answered: <strong>${answeredCount} / ${quizData.length}</strong> questions`;
+  }
+}
+
+async function confirmFinishQuiz() {
+  if (!currentTeam || quizCompletedState) return;
+  const answeredCount = quizData.filter(q => q.answered).length;
+  const totalCount = quizData.length;
+  const unanswered = totalCount - answeredCount;
+
+  let msg = `Ready to submit your final quiz answers?\n\n• Answered: ${answeredCount} / ${totalCount}\n`;
+  if (unanswered > 0) {
+    msg += `• Unanswered: ${unanswered} (will be marked 0 pts)\n`;
+  }
+  msg += `\n⚠️ Once submitted, you cannot change your answers!`;
+
+  if (!confirm(msg)) return;
+
+  try {
+    const res = await fetch('/api/quiz/finish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ team: currentTeam })
+    });
+    const data = await res.json();
+    if (data.success) {
+      quizCompletedState = true;
+      showToast('🎉 Quiz finalized and submitted successfully!', 'success');
+      await loadQuizData();
+    } else {
+      showToast(data.message || 'Error submitting quiz', 'error');
+    }
+  } catch (err) {
+    showToast('Failed to connect to server.', 'error');
+  }
+}
+
+async function submitFinalQuizAuto() {
+  if (!currentTeam || quizCompletedState) return;
+  try {
+    await fetch('/api/quiz/finish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ team: currentTeam })
+    });
+    quizCompletedState = true;
+    showToast('⏱️ Assessment time is up! Your answers have been submitted.', 'info');
+    await loadQuizData();
+  } catch (err) {}
 }
 
 // -------------------------------------------------------------
@@ -811,7 +929,7 @@ function renderCTF() {
             <span class="badge badge-cat">${escapeHtml(ch.category)}</span>
             <span class="badge badge-${escapeHtml(ch.difficulty)}">${escapeHtml(ch.difficulty)}</span>
           </div>
-          <div class="points-pill">+${ch.points} pts</div>
+          <div class="points-pill">${ch.points} pts</div>
         </div>
 
         <div class="card-title">${escapeHtml(ch.title)}</div>
@@ -820,7 +938,7 @@ function renderCTF() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
-          FLAG CAPTURED (+${ch.points} PTS)
+          FLAG CAPTURED
         </div>
 
         <div class="card-desc">
@@ -917,11 +1035,7 @@ async function updatePodScore() {
     const board = data.leaderboard || [];
 
     const myPod = board.find(t => t.name.toLowerCase() === currentTeam.toLowerCase());
-    const scoreBadge = document.getElementById('teamPointsVal');
     if (myPod) {
-      if (scoreBadge) {
-        scoreBadge.textContent = `${myPod.total_score} pts (Quiz: ${myPod.quiz_points} | CTF: ${myPod.ctf_net})`;
-      }
       if (myPod.violations_count !== undefined) {
         violationCount = myPod.violations_count;
       }
