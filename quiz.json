@@ -80,22 +80,5 @@
     "points": 50,
     "active": true,
     "explanation": "A network of malware-infected devices controlled remotely by an attacker is called a botnet (such as the infamous Mirai botnet)."
-  },
-  {
-    "id": "quiz-1789582612",
-    "title": "cyber attack and prevention",
-    "type": "mcq",
-    "category": "cyber attack",
-    "question": "What is phishing?",
-    "points": 1,
-    "active": true,
-    "explanation": "",
-    "options": [
-      "getting a high tech call",
-      "flooding with emails till the server stops responding",
-      "pretending to be legitimate online but actually making a fraud",
-      "none"
-    ],
-    "correct_option": 2
   }
 ]

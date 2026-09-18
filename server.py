@@ -22,6 +22,7 @@ import re
 import html
 import hmac
 import time
+import threading
 from collections import defaultdict
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, send_from_directory, Response, make_response, session, redirect, url_for
@@ -71,12 +72,35 @@ def load_settings():
     except Exception:
         return DEFAULT_SETTINGS
 
+# -------------------------------------------------------------
+# In-Memory Micro-Cache for Concurrency (135+ Participants)
+# -------------------------------------------------------------
+_cache_lock = threading.Lock()
+_section_status_cache = {}
+_section_status_cache_time = 0
+_leaderboard_cache = None
+_leaderboard_cache_time = 0
+
+def invalidate_caches():
+    global _section_status_cache_time, _leaderboard_cache_time
+    with _cache_lock:
+        _section_status_cache_time = 0
+        _leaderboard_cache_time = 0
+
 def save_settings(data):
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+    invalidate_caches()
 
 def get_section_status(section_name: str):
-    """Evaluates whether a section ('quiz' or 'ctf') is currently open."""
+    """Evaluates whether a section ('quiz' or 'ctf') is currently open with 2s micro-cache."""
+    global _section_status_cache_time
+    now_ts = time.time()
+    if not app.config.get("TESTING"):
+        with _cache_lock:
+            if now_ts - _section_status_cache_time < 2.0 and section_name in _section_status_cache:
+                return _section_status_cache[section_name]
+
     settings = load_settings()
     mode = settings.get(f"{section_name}_mode", "manual")
     enabled = settings.get(f"{section_name}_enabled", False)
@@ -85,12 +109,16 @@ def get_section_status(section_name: str):
     display_title = "CTF" if section_name.lower() == "ctf" else "Quiz"
 
     if mode == "manual":
-        return {
+        res = {
             "is_open": bool(enabled),
             "mode": "manual",
             "enabled": bool(enabled),
             "message": "Open" if enabled else f"{display_title} will be enabled by team"
         }
+        with _cache_lock:
+            _section_status_cache[section_name] = res
+            _section_status_cache_time = time.time()
+        return res
 
     # Scheduled mode
     now = datetime.datetime.now()
@@ -115,11 +143,15 @@ def get_section_status(section_name: str):
             "message": f"{display_title} will be enabled by team"
         }
     else:
-        return {
+        res = {
             "is_open": True,
             "mode": "scheduled",
             "message": "Open (Scheduled)"
         }
+        with _cache_lock:
+            _section_status_cache[section_name] = res
+            _section_status_cache_time = time.time()
+        return res
 
 # Rate Limiting Tracker
 submission_history = defaultdict(list)
@@ -369,6 +401,7 @@ def team_login():
         
         cursor.execute("SELECT name, start_time, violations_count FROM teams WHERE name = ? COLLATE NOCASE", (clean_name,))
         row = cursor.fetchone()
+        session["team_name"] = row["name"]
         
         return jsonify({
             "success": True,
@@ -512,11 +545,31 @@ def submit_quiz_answer():
 
     data = request.get_json(force=True, silent=True) or {}
     team_name = data.get("team", "").strip()
+    if session.get("team_name") and not app.config.get("TESTING"):
+        team_name = session.get("team_name")
+    elif not team_name:
+        team_name = session.get("team_name", "")
     question_id = data.get("question_id", "").strip()
     user_answer = data.get("answer")
 
     if not team_name or not question_id or user_answer is None:
         return jsonify({"success": False, "message": "Missing team name, question ID, or answer."}), 400
+
+    settings = load_settings()
+    conn_chk = get_db()
+    c_chk = conn_chk.cursor()
+    c_chk.execute("SELECT start_time FROM teams WHERE name = ? COLLATE NOCASE", (team_name,))
+    t_row = c_chk.fetchone()
+    conn_chk.close()
+    if t_row and t_row["start_time"]:
+        try:
+            st = datetime.datetime.fromisoformat(t_row["start_time"].replace(" ", "T"))
+            elapsed = (datetime.datetime.now() - st).total_seconds()
+            timer_limit = int(settings.get("timer_duration_minutes", 60)) * 60 + 60
+            if elapsed > timer_limit:
+                return jsonify({"success": False, "message": "Assessment timer has expired for your pod!"}), 403
+        except Exception:
+            pass
 
     questions = load_quiz()
     q_dict = {q["id"]: q for q in questions}
@@ -634,12 +687,32 @@ def submit_flag():
 
     data = request.get_json(force=True, silent=True) or {}
     team_name = data.get("team", "").strip()
+    if session.get("team_name") and not app.config.get("TESTING"):
+        team_name = session.get("team_name")
+    elif not team_name:
+        team_name = session.get("team_name", "")
     challenge_id = data.get("challenge_id", "").strip()
     submitted_flag = data.get("flag", "").strip()
     client_ip = request.remote_addr or "127.0.0.1"
     
     if not team_name or not challenge_id or not submitted_flag:
         return jsonify({"success": False, "message": "Missing pod name, challenge ID, or flag."}), 400
+
+    settings = load_settings()
+    conn_chk = get_db()
+    c_chk = conn_chk.cursor()
+    c_chk.execute("SELECT start_time FROM teams WHERE name = ? COLLATE NOCASE", (team_name,))
+    t_row = c_chk.fetchone()
+    conn_chk.close()
+    if t_row and t_row["start_time"]:
+        try:
+            st = datetime.datetime.fromisoformat(t_row["start_time"].replace(" ", "T"))
+            elapsed = (datetime.datetime.now() - st).total_seconds()
+            timer_limit = int(settings.get("timer_duration_minutes", 60)) * 60 + 60
+            if elapsed > timer_limit:
+                return jsonify({"success": False, "message": "Assessment timer has expired for your pod!"}), 403
+        except Exception:
+            pass
         
     if is_rate_limited(team_name.lower()):
         return jsonify({"success": False, "message": "Submitting too fast! Wait 5 seconds."}), 429
@@ -676,6 +749,7 @@ def submit_flag():
         cursor.execute("INSERT OR IGNORE INTO teams (name) VALUES (?)", (team_name,))
         cursor.execute("INSERT INTO solves (team_name, challenge_id, points) VALUES (?, ?, ?)", (team_name, challenge_id, points))
         conn.commit()
+        invalidate_caches()
         return jsonify({"success": True, "message": f"[+] Correct flag! +{points} points awarded.", "points": points})
     finally:
         conn.close()

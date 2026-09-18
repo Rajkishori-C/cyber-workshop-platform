@@ -54,10 +54,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadCTFData();
   await updatePodScore();
 
-  // Polling intervals
-  setInterval(updatePodScore, 4000);
-  setInterval(refreshSectionStatus, 3000);
-  setInterval(verifyCurrentTeam, 5000);
+  // Polling intervals (Optimized for 135+ simultaneous participants)
+  setInterval(updatePodScore, 6000);
+  setInterval(refreshSectionStatus, 5000);
+  setInterval(verifyCurrentTeam, 8000);
 });
 
 function setupEventListeners() {
@@ -114,7 +114,12 @@ function setupEventListeners() {
       reEnterBtn.style.display = isFull ? 'none' : 'inline-flex';
     }
 
-    if (!isFull && isAssessmentStarted) {
+    function isInputElementActive() {
+      const el = document.activeElement;
+      return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    }
+
+    if (!isFull && isAssessmentStarted && !isInputElementActive()) {
       triggerScreenViolation("Fullscreen mode exited");
     }
   });
@@ -126,9 +131,11 @@ function setupEventListeners() {
     }
   });
 
-  // Anti-Cheat: Window Blur Listener
+  // Anti-Cheat: Window Blur Listener (Ignore if typing in an input)
   window.addEventListener('blur', () => {
-    if (isAssessmentStarted) {
+    const el = document.activeElement;
+    const isTyping = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+    if (isAssessmentStarted && !isTyping) {
       triggerScreenViolation("Window focus lost");
     }
   });
