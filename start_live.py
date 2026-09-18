@@ -115,6 +115,17 @@ def main():
     drain_thread = threading.Thread(target=drain_pipe, args=(tunnel_proc.stdout,), daemon=True)
     drain_thread.start()
 
+    admin_pw = "admin2026"
+    room_code = "WORKSHOP26"
+    try:
+        import json
+        with open(os.path.join(BASE_DIR, "settings.json"), "r", encoding="utf-8") as sf:
+            s_data = json.load(sf)
+            admin_pw = s_data.get("admin_password", "admin2026")
+            room_code = s_data.get("room_code", "WORKSHOP26")
+    except Exception:
+        pass
+
     info_text = f"""======================================================================
   CYBER WORKSHOP ARENA - LIVE SESSION INFORMATION
 ======================================================================
@@ -124,13 +135,14 @@ def main():
 
   ORGANIZER ADMIN DASHBOARD:
   >> {tunnel_url}/admin
-  Password: admin2026
+  Password: {admin_pw}
 
   AUDITORIUM PROJECTOR LEADERBOARD:
   >> {tunnel_url}/projector
 
   WHITEBOARD ROOM PASSCODE:
-  >> WORKSHOP26
+  >> {room_code}
+
 
 ======================================================================
 IMPORTANT: Keep this window OPEN throughout the workshop.
