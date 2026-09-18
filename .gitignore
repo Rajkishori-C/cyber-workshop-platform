@@ -16,6 +16,7 @@ ctf.db
 # Logs & Backups
 *.log
 workshop_results_*.csv
+LIVE_LINK.txt
 
 # OS metadata
 .DS_Store
