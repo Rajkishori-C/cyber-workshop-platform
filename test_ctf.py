@@ -64,6 +64,18 @@ class AssessmentTestSuite(unittest.TestCase):
         settings["ctf_enabled"] = False
         save_settings(settings)
 
+        # Clean slate after test run
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM solves")
+        cursor.execute("DELETE FROM hints_unlocked")
+        cursor.execute("DELETE FROM quiz_answers")
+        cursor.execute("DELETE FROM submissions_log")
+        cursor.execute("DELETE FROM teams")
+        conn.commit()
+        conn.close()
+        submission_history.clear()
+
     def test_01_room_passcode_verification(self):
         """Ensure only teams with the valid whiteboard room passcode can join."""
         settings = load_settings()
