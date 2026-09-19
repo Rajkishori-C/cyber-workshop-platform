@@ -82,9 +82,11 @@ _leaderboard_cache = None
 _leaderboard_cache_time = 0
 
 def invalidate_caches():
-    global _section_status_cache_time, _leaderboard_cache_time
+    global _section_status_cache_time, _leaderboard_cache_time, _section_status_cache, _leaderboard_cache
     with _cache_lock:
+        _section_status_cache.clear()
         _section_status_cache_time = 0
+        _leaderboard_cache = None
         _leaderboard_cache_time = 0
 
 def save_settings(data):
@@ -100,6 +102,8 @@ def get_section_status(section_name: str):
         with _cache_lock:
             if now_ts - _section_status_cache_time < 2.0 and section_name in _section_status_cache:
                 return _section_status_cache[section_name]
+            elif now_ts - _section_status_cache_time >= 2.0:
+                _section_status_cache.clear()
 
     settings = load_settings()
     mode = settings.get(f"{section_name}_mode", "manual")
