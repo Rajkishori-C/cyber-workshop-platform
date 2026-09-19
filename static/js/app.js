@@ -102,7 +102,7 @@ function setupEventListeners() {
 
   // Anti-Cheat: Fullscreen Change Listener
   document.addEventListener('fullscreenchange', () => {
-    if (quizCompletedState) return;
+    if (quizCompletedState || currentSection !== 'quiz') return;
     const isFull = !!document.fullscreenElement;
     const badge = document.getElementById('fullscreenStatusBadge');
     const reEnterBtn = document.getElementById('btnEnterFullscreen');
@@ -127,6 +127,7 @@ function setupEventListeners() {
 
   // Anti-Cheat: Tab Visibility Listener
   document.addEventListener('visibilitychange', () => {
+    if (quizCompletedState || currentSection !== 'quiz') return;
     if (document.hidden && isAssessmentStarted && !quizCompletedState) {
       triggerScreenViolation("Tab switched or minimized");
     }
@@ -134,6 +135,7 @@ function setupEventListeners() {
 
   // Anti-Cheat: Window Blur Listener (Ignore if typing in an input)
   window.addEventListener('blur', () => {
+    if (quizCompletedState || currentSection !== 'quiz') return;
     const el = document.activeElement;
     const isTyping = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
     if (isAssessmentStarted && !quizCompletedState && !isTyping) {
@@ -384,6 +386,7 @@ function updateCountdown() {
 }
 
 async function triggerScreenViolation(reason) {
+  if (currentSection !== 'quiz') return;
   if (!currentTeam || !isAssessmentStarted || isHandlingViolation || quizCompletedState) return;
   isHandlingViolation = true;
 
@@ -470,6 +473,7 @@ function switchSectionView(section) {
   } else {
     if (quizView) quizView.style.display = 'none';
     if (ctfView) ctfView.style.display = 'block';
+    hideStartAssessmentCard();
     renderCTF();
   }
 }
@@ -1082,19 +1086,7 @@ function renderCTF() {
     return;
   }
 
-  // 3. Section is open, pod joined, but assessment NOT started in fullscreen
-  if (!isAssessmentStarted) {
-    if (infoBanner) infoBanner.style.display = 'none';
-    showStartAssessmentCard();
-    container.innerHTML = `
-      <div style="text-align: center; color: var(--text-muted); padding: 30px 20px; font-size: 1rem;">
-        🔒 Challenges are locked until you click <strong>"Start Assessment & Lock Fullscreen"</strong> above.
-      </div>
-    `;
-    return;
-  }
-
-  // 4. Assessment is active and fullscreen started
+  // 3. CTF Arena is Open & Pod is Joined: display challenges directly (no fullscreen lock required for hands-on CTF)
   hideStartAssessmentCard();
   if (infoBanner) infoBanner.style.display = 'block';
 

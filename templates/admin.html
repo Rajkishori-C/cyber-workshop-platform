@@ -310,7 +310,7 @@
                   <div style="font-size: 0.75rem; color: var(--text-muted);">Toggle ON to unlock Quiz questions immediately</div>
                 </div>
                 <label class="switch">
-                  <input type="checkbox" id="quizEnabledToggle">
+                  <input type="checkbox" id="quizEnabledToggle" onchange="quickToggleSection('quiz', this.checked)">
                   <span class="slider"></span>
                 </label>
               </div>
@@ -359,7 +359,7 @@
                   <div style="font-size: 0.75rem; color: var(--text-muted);">Toggle ON to unlock CTF flags & challenges</div>
                 </div>
                 <label class="switch">
-                  <input type="checkbox" id="ctfEnabledToggle">
+                  <input type="checkbox" id="ctfEnabledToggle" onchange="quickToggleSection('ctf', this.checked)">
                   <span class="slider"></span>
                 </label>
               </div>

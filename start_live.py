@@ -43,11 +43,28 @@ def drain_pipe(pipe):
         except Exception:
             pass
 
+def kill_port_5000():
+    """Ensures port 5000 is completely free on Windows before starting Waitress."""
+    try:
+        out = subprocess.check_output('netstat -ano | findstr :5000', shell=True, text=True)
+        for line in out.strip().splitlines():
+            parts = line.split()
+            if len(parts) >= 5 and "LISTENING" in parts:
+                pid = parts[-1]
+                if pid and pid != "0":
+                    print(f"[*] Freeing port 5000: terminating stale process PID {pid}...", flush=True)
+                    subprocess.run(f'taskkill /F /PID {pid}', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    time.sleep(1)
+    except Exception:
+        pass
+
 def main():
     print("=" * 70, flush=True)
     print("   CYBER WORKSHOP PLATFORM - HIGH-CONCURRENCY LIVE LAUNCHER", flush=True)
     print("=" * 70, flush=True)
     
+    kill_port_5000()
+
     cloudflared_exe = find_cloudflared()
     if not cloudflared_exe:
         print("[!] Cloudflared not found in PATH or standard Program Files directories.", flush=True)
