@@ -355,6 +355,10 @@ body {
   color: var(--text-bright);
   margin-bottom: 12px;
   line-height: 1.4;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 .card-desc {
@@ -362,6 +366,10 @@ body {
   font-size: 1.02rem;
   line-height: 1.65;
   margin-bottom: 18px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 .code-box, .code-block {
@@ -858,3 +866,22 @@ code {
     min-width: 100%;
   }
 }
+
+/* -------------------------------------------------------------
+   Anti-Cheat & Anti-AI Protection: Text Selection Restrictions
+   ------------------------------------------------------------- */
+.no-copy, .card-desc, .card-title, .mcq-option-label {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Ensure students can always select, edit, and paste into answer inputs */
+input, textarea, .flag-input, .short-answer-input {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+

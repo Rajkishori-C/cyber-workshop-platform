@@ -22,8 +22,20 @@ let assessmentStartTime = null;
 let timerDurationMinutes = 60;
 let timerInterval = null;
 let isAssessmentStarted = false;
+let isCtfAssessmentStarted = false;
 let violationCount = 0;
 let isHandlingViolation = false;
+
+function isAntiCheatActive() {
+  if (!currentTeam) return false;
+  if (currentSection === 'quiz') {
+    return isAssessmentStarted && !quizCompletedState;
+  }
+  if (currentSection === 'ctf') {
+    return isCtfAssessmentStarted;
+  }
+  return false;
+}
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -102,7 +114,7 @@ function setupEventListeners() {
 
   // Anti-Cheat: Fullscreen Change Listener
   document.addEventListener('fullscreenchange', () => {
-    if (quizCompletedState || currentSection !== 'quiz') return;
+    if (!isAntiCheatActive()) return;
     const isFull = !!document.fullscreenElement;
     const badge = document.getElementById('fullscreenStatusBadge');
     const reEnterBtn = document.getElementById('btnEnterFullscreen');
@@ -120,26 +132,34 @@ function setupEventListeners() {
       return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
     }
 
-    if (!isFull && isAssessmentStarted && !quizCompletedState && !isInputElementActive()) {
+    if (!isFull && !isInputElementActive()) {
       triggerScreenViolation("Fullscreen mode exited");
     }
   });
 
   // Anti-Cheat: Tab Visibility Listener
   document.addEventListener('visibilitychange', () => {
-    if (quizCompletedState || currentSection !== 'quiz') return;
-    if (document.hidden && isAssessmentStarted && !quizCompletedState) {
+    if (document.hidden && isAntiCheatActive()) {
       triggerScreenViolation("Tab switched or minimized");
     }
   });
 
   // Anti-Cheat: Window Blur Listener (Ignore if typing in an input)
   window.addEventListener('blur', () => {
-    if (quizCompletedState || currentSection !== 'quiz') return;
     const el = document.activeElement;
     const isTyping = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
-    if (isAssessmentStarted && !quizCompletedState && !isTyping) {
+    if (isAntiCheatActive() && !isTyping) {
       triggerScreenViolation("Window focus lost");
+    }
+  });
+
+  // Anti-Cheat: Prevent Copying Questions into AI tools
+  document.addEventListener('copy', (e) => {
+    const el = document.activeElement;
+    const isTyping = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+    if (!isTyping && isAntiCheatActive()) {
+      e.preventDefault();
+      showToast("⚠️ Copying question text is disabled during assessment.", "error");
     }
   });
 }
@@ -237,6 +257,7 @@ function logoutStudent(toastMsg) {
   currentTeam = '';
   localStorage.removeItem('ctf_team');
   isAssessmentStarted = false;
+  isCtfAssessmentStarted = false;
   quizCompletedState = false;
   hasPromptedAllAnswered = false;
   if (timerInterval) {
@@ -336,6 +357,17 @@ async function startAssessmentWithFullscreen() {
   }
 }
 
+function startCtfWithFullscreen() {
+  if (!currentTeam) {
+    showRoleGateway();
+    return;
+  }
+  requestAssessmentFullscreen();
+  isCtfAssessmentStarted = true;
+  showToast("CTF Arena started! Fullscreen locked.", "success");
+  renderCTF();
+}
+
 function initAssessmentTimer(startTimeStr) {
   isAssessmentStarted = true;
   assessmentStartTime = new Date(startTimeStr.replace(' ', 'T'));
@@ -386,8 +418,7 @@ function updateCountdown() {
 }
 
 async function triggerScreenViolation(reason) {
-  if (currentSection !== 'quiz') return;
-  if (!currentTeam || !isAssessmentStarted || isHandlingViolation || quizCompletedState) return;
+  if (!isAntiCheatActive() || !currentTeam || isHandlingViolation) return;
   isHandlingViolation = true;
 
   violationCount++;
@@ -1086,7 +1117,28 @@ function renderCTF() {
     return;
   }
 
-  // 3. CTF Arena is Open & Pod is Joined: display challenges directly (no fullscreen lock required for hands-on CTF)
+  // 3. Section is open, pod joined, but CTF assessment NOT started in fullscreen
+  if (!isCtfAssessmentStarted) {
+    if (infoBanner) infoBanner.style.display = 'none';
+    hideStartAssessmentCard();
+    container.innerHTML = `
+      <div class="locked-section-card" style="border-color: var(--neon-green);">
+        <div class="locked-icon">🔒</div>
+        <h2 style="color: var(--text-bright); margin-bottom: 8px;">CTF ARENA IS FULLSCREEN LOCKED</h2>
+        <div class="badge badge-easy" style="font-size: 0.95rem; padding: 6px 18px; margin: 12px auto; display: inline-block;">
+          ANTI-CHEAT MONITORING ENABLED
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.95rem; max-width: 540px; margin: 12px auto 20px auto; line-height: 1.5;">
+          All challenges are self-contained on screen. To ensure fair competition and prevent unauthorized AI tools or external browsing, challenges are only unlocked in Fullscreen mode.
+        </p>
+        <button class="btn-cyber btn-green" onclick="startCtfWithFullscreen()" style="font-size: 1.05rem; padding: 12px 30px; font-weight: bold;">
+          ⛶ Enter CTF Arena & Lock Fullscreen
+        </button>
+      </div>
+    `;
+    return;
+  }
+
   hideStartAssessmentCard();
   if (infoBanner) infoBanner.style.display = 'block';
 
