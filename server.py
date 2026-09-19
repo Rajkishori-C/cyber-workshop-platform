@@ -167,12 +167,15 @@ def is_rate_limited(team_name: str) -> bool:
     submission_history[team_name].append(now)
     return False
 
-# Security Headers
+# Security & No-Cache Headers
 @app.after_request
 def add_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         "style-src 'self' 'unsafe-inline'; "
@@ -297,6 +300,7 @@ def load_challenges():
 def save_challenges(data):
     with open(CHALLENGES_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+    invalidate_caches()
 
 def load_quiz():
     if not os.path.exists(QUIZ_FILE):
@@ -310,6 +314,7 @@ def load_quiz():
 def save_quiz(data):
     with open(QUIZ_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+    invalidate_caches()
 
 # -------------------------------------------------------------
 # Admin Auth Decorator
@@ -1018,6 +1023,19 @@ def admin_delete_quiz_question():
     questions = load_quiz()
     new_list = [q for q in questions if q["id"] != qid]
     save_quiz(new_list)
+
+    # Clean up any orphan answers from database
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM quiz_answers WHERE question_id = ?", (qid,))
+        conn.commit()
+    except Exception:
+        pass
+    finally:
+        conn.close()
+
+    invalidate_caches()
     return jsonify({"success": True, "deleted": qid})
 
 @app.route("/api/admin/challenges", methods=["GET"])
@@ -1076,6 +1094,21 @@ def admin_delete_challenge():
     challenges = load_challenges()
     new_list = [c for c in challenges if c["id"] != cid]
     save_challenges(new_list)
+
+    # Clean up any orphan solves/hints from database
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM solves WHERE challenge_id = ?", (cid,))
+        cursor.execute("DELETE FROM hints_unlocked WHERE challenge_id = ?", (cid,))
+        cursor.execute("DELETE FROM submissions_log WHERE challenge_id = ?", (cid,))
+        conn.commit()
+    except Exception:
+        pass
+    finally:
+        conn.close()
+
+    invalidate_caches()
     return jsonify({"success": True, "deleted": cid})
 
 @app.route("/api/admin/teams", methods=["GET"])

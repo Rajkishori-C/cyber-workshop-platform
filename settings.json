@@ -1,7 +1,7 @@
 {
   "room_code": "WORKSHOP26",
   "admin_password": "nolook26",
-  "timer_duration_minutes": 60,
+  "timer_duration_minutes": 5,
   "anti_cheat_enabled": true,
   "max_violations": 3,
   "quiz_mode": "manual",

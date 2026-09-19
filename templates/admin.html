@@ -831,7 +831,7 @@
     }
 
     async function loadAdminQuiz() {
-      const res = await fetch('/api/admin/quiz');
+      const res = await fetch('/api/admin/quiz', { cache: 'no-store' });
       allQuizQuestions = await res.json();
       const container = document.getElementById('adminQuizList');
 
@@ -1008,7 +1008,7 @@
     let allChallenges = [];
 
     async function loadAdminChallenges() {
-      const res = await fetch('/api/admin/challenges');
+      const res = await fetch('/api/admin/challenges', { cache: 'no-store' });
       allChallenges = await res.json();
       const container = document.getElementById('adminChallengesList');
 

@@ -26,7 +26,8 @@ import unittest
 import json
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from server import app, init_db, get_db, load_settings, save_settings, submission_history
+import server
+from server import app, init_db, get_db, load_settings, save_settings, load_quiz, save_quiz, submission_history
 
 class AssessmentTestSuite(unittest.TestCase):
 
@@ -34,9 +35,19 @@ class AssessmentTestSuite(unittest.TestCase):
     def setUpClass(cls):
         app.config['TESTING'] = True
         cls.client = app.test_client()
+
+        # Isolate test database so live ctf.db is NEVER touched or wiped
+        cls.orig_db_file = server.DB_FILE
+        cls.test_db_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_ctf.db")
+        server.DB_FILE = cls.test_db_file
+
+        # Save original state to restore on teardown
+        cls.orig_settings = load_settings()
+        cls.orig_quiz = load_quiz()
+
         init_db()
 
-        # Clean slate for test run
+        # Clean slate for test db
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM solves")
@@ -49,7 +60,7 @@ class AssessmentTestSuite(unittest.TestCase):
         submission_history.clear()
 
         # Ensure both sections open for test suite
-        settings = load_settings()
+        settings = dict(cls.orig_settings)
         settings["quiz_mode"] = "manual"
         settings["quiz_enabled"] = True
         settings["ctf_mode"] = "manual"
@@ -58,22 +69,17 @@ class AssessmentTestSuite(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # Reset settings to safe closed-by-default state
-        settings = load_settings()
-        settings["quiz_enabled"] = False
-        settings["ctf_enabled"] = False
-        save_settings(settings)
+        # Restore settings and quiz data
+        save_settings(cls.orig_settings)
+        save_quiz(cls.orig_quiz)
 
-        # Clean slate after test run
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM solves")
-        cursor.execute("DELETE FROM hints_unlocked")
-        cursor.execute("DELETE FROM quiz_answers")
-        cursor.execute("DELETE FROM submissions_log")
-        cursor.execute("DELETE FROM teams")
-        conn.commit()
-        conn.close()
+        # Restore live database pointer
+        server.DB_FILE = cls.orig_db_file
+        if os.path.exists(cls.test_db_file):
+            try:
+                os.remove(cls.test_db_file)
+            except Exception:
+                pass
         submission_history.clear()
 
     def test_01_room_passcode_verification(self):
@@ -216,33 +222,57 @@ class AssessmentTestSuite(unittest.TestCase):
     def test_11_quiz_mcq_submission(self):
         """Test submitting correct MCQ choice on Saturday Quiz."""
         team = "Pod_Alpha_01"
-        # quiz-01 is 'Phishing Tactic', correct_option is 0
+        questions = load_quiz()
+        mcq_q = next((q for q in questions if q.get("type") == "mcq" and q.get("active", True)), None)
+        if not mcq_q:
+            mcq_q = {
+                "id": "quiz-test-mcq", "title": "Test MCQ", "type": "mcq",
+                "category": "General", "question": "What is 2+2?",
+                "options": ["3", "4", "5"], "correct_option": 1, "points": 50, "active": True
+            }
+            questions.append(mcq_q)
+            save_quiz(questions)
+
+        AssessmentTestSuite.tested_mcq = mcq_q
+        ans = mcq_q.get("correct_option", 0)
         res = self.client.post('/api/quiz/submit', json={
             "team": team,
-            "question_id": "quiz-01",
-            "answer": 0
+            "question_id": mcq_q["id"],
+            "answer": ans
         })
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertTrue(data["success"])
         self.assertTrue(data["is_correct"])
-        self.assertEqual(data["points"], 50)
+        self.assertEqual(data["points"], mcq_q.get("points", 50))
         print("[+] PASS: Quiz MCQ correct submission verified.")
 
     def test_12_quiz_short_answer_submission(self):
         """Test submitting short-answer with case-insensitivity on Saturday Quiz."""
         team = "Pod_Alpha_01"
-        # quiz-02 is Port 443, accepted answers include '443'
+        questions = load_quiz()
+        sa_q = next((q for q in questions if q.get("type") == "short_answer" and q.get("active", True)), None)
+        if not sa_q:
+            sa_q = {
+                "id": "quiz-test-sa", "title": "Test Short Answer", "type": "short_answer",
+                "category": "General", "question": "What is HTTPS port?",
+                "accepted_answers": ["443", "port 443"], "points": 50, "active": True
+            }
+            questions.append(sa_q)
+            save_quiz(questions)
+
+        AssessmentTestSuite.tested_sa = sa_q
+        ans = sa_q.get("accepted_answers", ["443"])[0]
         res = self.client.post('/api/quiz/submit', json={
             "team": team,
-            "question_id": "quiz-02",
-            "answer": "443"
+            "question_id": sa_q["id"],
+            "answer": ans.upper()  # Test case-insensitivity
         })
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertTrue(data["success"])
         self.assertTrue(data["is_correct"])
-        self.assertEqual(data["points"], 50)
+        self.assertEqual(data["points"], sa_q.get("points", 50))
         print("[+] PASS: Quiz short-answer case-insensitive submission verified.")
 
     def test_13_quiz_duplicate_submission_prevention(self):
@@ -254,9 +284,10 @@ class AssessmentTestSuite(unittest.TestCase):
         self.assertTrue(fin_res.get_json()["success"])
 
         # 2. Attempt to submit again after finalization
+        qid = getattr(AssessmentTestSuite, 'tested_mcq', {}).get("id", "quiz-01")
         res = self.client.post('/api/quiz/submit', json={
             "team": team,
-            "question_id": "quiz-01",
+            "question_id": qid,
             "answer": 0
         })
         self.assertEqual(res.status_code, 400)
@@ -273,14 +304,13 @@ class AssessmentTestSuite(unittest.TestCase):
         pod = next((t for t in lb if t["name"] == "Pod_Alpha_01"), None)
         self.assertIsNotNone(pod)
 
-        # Pod_Alpha_01 solved:
-        # demo-01 (50 CTF pts)
-        # quiz-01 (50 Quiz pts)
-        # quiz-02 (50 Quiz pts)
-        # Total = 50 + 50 + 50 = 150 pts
-        self.assertEqual(pod["quiz_points"], 100)
+        expected_quiz_points = (
+            getattr(AssessmentTestSuite, 'tested_mcq', {}).get("points", 50) +
+            getattr(AssessmentTestSuite, 'tested_sa', {}).get("points", 50)
+        )
+        self.assertEqual(pod["quiz_points"], expected_quiz_points)
         self.assertEqual(pod["ctf_gross"], 50)
-        self.assertEqual(pod["total_score"], 150)
+        self.assertEqual(pod["total_score"], 50 + expected_quiz_points)
         print("[+] PASS: Combined leaderboard scoring math verified.")
 
     def test_15_section_status_and_lock_controls(self):

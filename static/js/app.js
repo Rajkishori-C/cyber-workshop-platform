@@ -119,14 +119,14 @@ function setupEventListeners() {
       return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
     }
 
-    if (!isFull && isAssessmentStarted && !isInputElementActive()) {
+    if (!isFull && isAssessmentStarted && !quizCompletedState && !isInputElementActive()) {
       triggerScreenViolation("Fullscreen mode exited");
     }
   });
 
   // Anti-Cheat: Tab Visibility Listener
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && isAssessmentStarted) {
+    if (document.hidden && isAssessmentStarted && !quizCompletedState) {
       triggerScreenViolation("Tab switched or minimized");
     }
   });
@@ -135,7 +135,7 @@ function setupEventListeners() {
   window.addEventListener('blur', () => {
     const el = document.activeElement;
     const isTyping = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
-    if (isAssessmentStarted && !isTyping) {
+    if (isAssessmentStarted && !quizCompletedState && !isTyping) {
       triggerScreenViolation("Window focus lost");
     }
   });
@@ -227,9 +227,13 @@ function updateTeamUI(name) {
 }
 
 function logoutStudent(toastMsg) {
+  if (document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(() => {});
+  }
   currentTeam = '';
   localStorage.removeItem('ctf_team');
   isAssessmentStarted = false;
+  quizCompletedState = false;
   if (timerInterval) clearInterval(timerInterval);
 
   updateTeamUI(null);
@@ -238,8 +242,8 @@ function logoutStudent(toastMsg) {
   if (toastMsg) showToast(toastMsg, 'info');
   showRoleGateway();
 
-  loadQuizData();
-  loadCTFData();
+  loadQuizData(true);
+  loadCTFData(true);
 }
 
 /**
@@ -250,12 +254,12 @@ function logoutStudent(toastMsg) {
 async function verifyCurrentTeam() {
   if (!currentTeam) return;
   try {
-    const res = await fetch(`/api/team/status?team=${encodeURIComponent(currentTeam)}`);
+    const res = await fetch(`/api/team/status?team=${encodeURIComponent(currentTeam)}`, { cache: 'no-store' });
     const data = await res.json();
     if (!data.exists) {
       // Pod was deleted or wiped by admin!
       logoutStudent("Your pod was cleared or reset by the event organizer. Please rejoin.");
-    } else if (data.start_time && !isAssessmentStarted) {
+    } else if (data.start_time && !isAssessmentStarted && !quizCompletedState) {
       initAssessmentTimer(data.start_time);
     }
   } catch (err) {}
@@ -366,7 +370,7 @@ function updateCountdown() {
 }
 
 async function triggerScreenViolation(reason) {
-  if (!currentTeam || !isAssessmentStarted || isHandlingViolation) return;
+  if (!currentTeam || !isAssessmentStarted || isHandlingViolation || quizCompletedState) return;
   isHandlingViolation = true;
 
   violationCount++;
@@ -399,12 +403,18 @@ function resumeAssessmentFullscreen() {
   if (modal) modal.style.display = 'none';
 }
 
+function isStudentTyping(containerId) {
+  const container = document.getElementById(containerId);
+  const el = document.activeElement;
+  return !!(el && container && container.contains(el) && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'));
+}
+
 // -------------------------------------------------------------
 // Section Switcher & Status
 // -------------------------------------------------------------
 async function refreshSectionStatus() {
   try {
-    const res = await fetch('/api/sections/status');
+    const res = await fetch('/api/sections/status', { cache: 'no-store' });
     const data = await res.json();
     sectionsStatus = data;
     if (data.timer_duration_minutes) {
@@ -426,11 +436,11 @@ async function refreshSectionStatus() {
       ctfTag.className = `section-status-tag ${open ? 'status-open' : 'status-locked'}`;
     }
 
-    // Re-render current section view to reflect lock immediately
+    // Live refresh data from server to catch admin deletions/additions
     if (currentSection === 'quiz') {
-      renderQuiz();
+      await loadQuizData(false);
     } else {
-      renderCTF();
+      await loadCTFData(false);
     }
   } catch (err) {}
 }
@@ -454,21 +464,61 @@ function switchSectionView(section) {
 // Quiz Section (Saturday)
 // -------------------------------------------------------------
 let quizCompletedState = false;
+let lastQuizSignature = '';
 
-async function loadQuizData() {
+async function loadQuizData(forceRender = false) {
   try {
     const url = currentTeam ? `/api/quiz?team=${encodeURIComponent(currentTeam)}` : '/api/quiz';
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: 'no-store' });
     const data = await res.json();
 
+    const isLocked = Boolean(data.locked);
     if (data.locked) {
       if (sectionsStatus.quiz) sectionsStatus.quiz.is_open = false;
       quizData = [];
     } else {
       quizData = data.questions || [];
-      quizCompletedState = Boolean(data.quiz_completed);
+      const newCompleted = Boolean(data.quiz_completed);
+      if (newCompleted && !quizCompletedState) {
+        quizCompletedState = true;
+        isAssessmentStarted = false;
+        if (timerInterval) clearInterval(timerInterval);
+        hideAssessmentUI();
+      }
+      quizCompletedState = newCompleted;
     }
-    renderQuiz();
+
+    const currentSignature = JSON.stringify({
+      locked: isLocked,
+      completed: quizCompletedState,
+      questions: quizData.map(q => ({
+        id: q.id,
+        title: q.title,
+        question: q.question,
+        answered: q.answered,
+        sub: q.submitted_answer,
+        type: q.type,
+        opts: q.options
+      }))
+    });
+
+    const hasChanged = currentSignature !== lastQuizSignature;
+    lastQuizSignature = currentSignature;
+
+    const isTyping = isStudentTyping('quizQuestionsContainer');
+    if (forceRender || (hasChanged && !isTyping)) {
+      renderQuiz();
+    } else if (hasChanged && isTyping) {
+      // Safely remove any deleted question cards without disturbing active typing inputs
+      const activeIds = new Set(quizData.map(q => q.id));
+      document.querySelectorAll('#quizQuestionsContainer .challenge-card').forEach(card => {
+        const id = card.id.replace('card-', '');
+        if (id && !activeIds.has(id)) {
+          card.remove();
+        }
+      });
+      updateQuizProgressCount();
+    }
   } catch (err) {}
 }
 
@@ -516,7 +566,7 @@ function renderQuiz() {
   }
 
   // 3. Section is open, pod joined, but assessment NOT started in fullscreen
-  if (!isAssessmentStarted) {
+  if (!isAssessmentStarted && !quizCompletedState) {
     if (infoBanner) infoBanner.style.display = 'none';
     showStartAssessmentCard();
     container.innerHTML = `
@@ -527,9 +577,9 @@ function renderQuiz() {
     return;
   }
 
-  // 4. Assessment is active and fullscreen started
+  // 4. Assessment is active and fullscreen started (or finalized)
   hideStartAssessmentCard();
-  if (infoBanner) infoBanner.style.display = 'block';
+  if (infoBanner) infoBanner.style.display = quizCompletedState ? 'none' : 'block';
 
   if (quizData.length === 0) {
     container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 40px;">No quiz questions available yet.</div>`;
@@ -544,9 +594,12 @@ function renderQuiz() {
       <div style="background: rgba(16, 185, 129, 0.12); border: 2px solid var(--neon-green); border-radius: 10px; padding: 22px; text-align: center; margin-bottom: 24px;">
         <div style="font-size: 2.2rem; margin-bottom: 6px;">🎉</div>
         <h3 style="color: var(--neon-green); margin-bottom: 6px; font-size: 1.25rem;">QUIZ FINALIZED & SUBMITTED</h3>
-        <p style="color: var(--text-bright); font-size: 0.95rem; margin: 0;">
+        <p style="color: var(--text-bright); font-size: 0.95rem; margin: 0 0 16px 0;">
           All responses have been submitted for your pod. Standings will be announced on the auditorium projector!
         </p>
+        <button class="btn-cyber btn-cyan" onclick="logoutStudent('Logged out successfully.')" style="margin: 0 auto; font-size: 1rem; padding: 10px 24px; font-weight: bold;">
+          🚪 Exit Assessment & Log Out
+        </button>
       </div>
     `;
   }
@@ -792,8 +845,14 @@ async function confirmFinishQuiz() {
     const data = await res.json();
     if (data.success) {
       quizCompletedState = true;
+      isAssessmentStarted = false;
+      if (timerInterval) clearInterval(timerInterval);
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+      hideAssessmentUI();
       showToast('🎉 Quiz finalized and submitted successfully!', 'success');
-      await loadQuizData();
+      await loadQuizData(true);
     } else {
       showToast(data.message || 'Error submitting quiz', 'error');
     }
@@ -811,27 +870,62 @@ async function submitFinalQuizAuto() {
       body: JSON.stringify({ team: currentTeam })
     });
     quizCompletedState = true;
+    isAssessmentStarted = false;
+    if (timerInterval) clearInterval(timerInterval);
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+    hideAssessmentUI();
     showToast('⏱️ Assessment time is up! Your answers have been submitted.', 'info');
-    await loadQuizData();
+    await loadQuizData(true);
   } catch (err) {}
 }
 
 // -------------------------------------------------------------
 // CTF Section (Sunday)
 // -------------------------------------------------------------
-async function loadCTFData() {
+let lastCTFSignature = '';
+
+async function loadCTFData(forceRender = false) {
   try {
     const url = currentTeam ? `/api/challenges?team=${encodeURIComponent(currentTeam)}` : '/api/challenges';
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: 'no-store' });
     const data = await res.json();
 
+    const isLocked = Boolean(data.locked);
     if (data.locked) {
       if (sectionsStatus.ctf) sectionsStatus.ctf.is_open = false;
       challengesData = [];
     } else {
       challengesData = data.challenges || [];
     }
-    renderCTF();
+
+    const currentSignature = JSON.stringify({
+      locked: isLocked,
+      challenges: challengesData.map(c => ({
+        id: c.id,
+        title: c.title,
+        solved: c.solved,
+        hint_unlocked: c.hint_unlocked
+      }))
+    });
+
+    const hasChanged = currentSignature !== lastCTFSignature;
+    lastCTFSignature = currentSignature;
+
+    const isTyping = isStudentTyping('ctfQuestionsContainer');
+    if (forceRender || (hasChanged && !isTyping)) {
+      renderCTF();
+    } else if (hasChanged && isTyping) {
+      // Safely remove any deleted challenge cards without disturbing active typing inputs
+      const activeIds = new Set(challengesData.map(c => c.id));
+      document.querySelectorAll('#ctfQuestionsContainer .challenge-card').forEach(card => {
+        const id = card.id.replace('card-', '');
+        if (id && !activeIds.has(id)) {
+          card.remove();
+        }
+      });
+    }
   } catch (err) {}
 }
 

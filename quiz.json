@@ -17,21 +17,6 @@
     "explanation": "The domain 'paypa1' uses the digit 1 instead of the letter 'l' (typosquatting), and the 1-hour deadline creates artificial urgency to bypass critical thinking."
   },
   {
-    "id": "quiz-02",
-    "title": "Secure Web Traffic Port",
-    "type": "short_answer",
-    "category": "Networking",
-    "question": "What is the standard default TCP port number used for secure HTTPS encrypted web traffic?",
-    "accepted_answers": [
-      "443",
-      "port 443",
-      "tcp 443"
-    ],
-    "points": 50,
-    "active": true,
-    "explanation": "Port 443 is the standard port for HTTPS (HTTP over TLS/SSL)."
-  },
-  {
     "id": "quiz-03",
     "title": "Authentication Factor Types",
     "type": "mcq",
