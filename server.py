@@ -478,7 +478,7 @@ def team_status():
         return jsonify({"exists": False})
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT name, start_time, violations_count FROM teams WHERE name = ? COLLATE NOCASE", (team_name,))
+    cursor.execute("SELECT name, start_time, violations_count, quiz_completed FROM teams WHERE name = ? COLLATE NOCASE", (team_name,))
     row = cursor.fetchone()
     conn.close()
     if not row:
@@ -487,8 +487,14 @@ def team_status():
         "exists": True,
         "name": row["name"],
         "start_time": row["start_time"],
-        "violations_count": row["violations_count"]
+        "violations_count": row["violations_count"],
+        "quiz_completed": bool(row["quiz_completed"])
     })
+
+@app.route("/api/team/logout", methods=["POST"])
+def team_logout():
+    session.pop("team_name", None)
+    return jsonify({"success": True})
 
 # -------------------------------------------------------------
 # Quiz Endpoints (Saturday Quiz)
@@ -500,11 +506,7 @@ def get_quiz():
     if not quiz_stat["is_open"]:
         return jsonify({"locked": True, "message": quiz_stat["message"], "questions": [], "quiz_completed": False})
 
-    team_name = request.args.get("team", "").strip()
-    if session.get("team_name") and not app.config.get("TESTING"):
-        team_name = session.get("team_name")
-    elif not team_name:
-        team_name = session.get("team_name", "")
+    team_name = request.args.get("team", "").strip() or session.get("team_name", "")
 
     questions = load_quiz()
     
@@ -561,11 +563,7 @@ def submit_quiz_answer():
         return jsonify({"success": False, "message": f"Quiz section is closed: {quiz_stat['message']}"}), 403
 
     data = request.get_json(force=True, silent=True) or {}
-    team_name = data.get("team", "").strip()
-    if session.get("team_name") and not app.config.get("TESTING"):
-        team_name = session.get("team_name")
-    elif not team_name:
-        team_name = session.get("team_name", "")
+    team_name = data.get("team", "").strip() or session.get("team_name", "")
     question_id = data.get("question_id", "").strip()
     user_answer = data.get("answer")
 
@@ -653,11 +651,7 @@ def submit_quiz_answer():
 def finish_quiz():
     """Finalizes and permanently locks the Saturday Quiz for a pod."""
     data = request.get_json(force=True, silent=True) or {}
-    team_name = data.get("team", "").strip()
-    if session.get("team_name") and not app.config.get("TESTING"):
-        team_name = session.get("team_name")
-    elif not team_name:
-        team_name = session.get("team_name", "")
+    team_name = data.get("team", "").strip() or session.get("team_name", "")
 
     if not team_name:
         return jsonify({"success": False, "message": "Pod name required."}), 400
@@ -668,7 +662,7 @@ def finish_quiz():
         cursor.execute("SELECT id, quiz_completed FROM teams WHERE name = ? COLLATE NOCASE", (team_name,))
         row = cursor.fetchone()
         if not row:
-            cursor.execute("INSERT OR IGNORE INTO teams (name, quiz_completed) VALUES (?, 1)", (team_name,))
+            cursor.execute("INSERT INTO teams (name, quiz_completed) VALUES (?, 1)", (team_name,))
         else:
             cursor.execute("UPDATE teams SET quiz_completed = 1 WHERE name = ? COLLATE NOCASE", (team_name,))
         conn.commit()

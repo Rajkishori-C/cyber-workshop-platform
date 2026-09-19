@@ -102,6 +102,7 @@ function setupEventListeners() {
 
   // Anti-Cheat: Fullscreen Change Listener
   document.addEventListener('fullscreenchange', () => {
+    if (quizCompletedState) return;
     const isFull = !!document.fullscreenElement;
     const badge = document.getElementById('fullscreenStatusBadge');
     const reEnterBtn = document.getElementById('btnEnterFullscreen');
@@ -227,6 +228,7 @@ function updateTeamUI(name) {
 }
 
 function logoutStudent(toastMsg) {
+  fetch('/api/team/logout', { method: 'POST' }).catch(() => {});
   if (document.fullscreenElement && document.exitFullscreen) {
     document.exitFullscreen().catch(() => {});
   }
@@ -234,7 +236,11 @@ function logoutStudent(toastMsg) {
   localStorage.removeItem('ctf_team');
   isAssessmentStarted = false;
   quizCompletedState = false;
-  if (timerInterval) clearInterval(timerInterval);
+  hasPromptedAllAnswered = false;
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
 
   updateTeamUI(null);
   hideAssessmentUI();
@@ -259,6 +265,14 @@ async function verifyCurrentTeam() {
     if (!data.exists) {
       // Pod was deleted or wiped by admin!
       logoutStudent("Your pod was cleared or reset by the event organizer. Please rejoin.");
+    } else if (data.quiz_completed) {
+      quizCompletedState = true;
+      isAssessmentStarted = false;
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+      hideAssessmentUI();
     } else if (data.start_time && !isAssessmentStarted && !quizCompletedState) {
       initAssessmentTimer(data.start_time);
     }
@@ -588,22 +602,6 @@ function renderQuiz() {
 
   const answeredCount = quizData.filter(q => q.answered).length;
 
-  let completionBanner = '';
-  if (quizCompletedState) {
-    completionBanner = `
-      <div style="background: rgba(16, 185, 129, 0.12); border: 2px solid var(--neon-green); border-radius: 10px; padding: 22px; text-align: center; margin-bottom: 24px;">
-        <div style="font-size: 2.2rem; margin-bottom: 6px;">🎉</div>
-        <h3 style="color: var(--neon-green); margin-bottom: 6px; font-size: 1.25rem;">QUIZ FINALIZED & SUBMITTED</h3>
-        <p style="color: var(--text-bright); font-size: 0.95rem; margin: 0 0 16px 0;">
-          All responses have been submitted for your pod. Standings will be announced on the auditorium projector!
-        </p>
-        <button class="btn-cyber btn-cyan" onclick="logoutStudent('Logged out successfully.')" style="margin: 0 auto; font-size: 1rem; padding: 10px 24px; font-weight: bold;">
-          🚪 Exit Assessment & Log Out
-        </button>
-      </div>
-    `;
-  }
-
   const cardsHtml = quizData.map((q, idx) => {
     const isAnswered = q.answered;
 
@@ -696,25 +694,55 @@ function renderQuiz() {
     `;
   }).join('');
 
-  let finishCard = '';
-  if (!quizCompletedState) {
-    finishCard = `
-      <div style="background: var(--bg-card); border: 2px solid var(--neon-cyan); border-radius: 12px; padding: 26px; text-align: center; margin: 30px auto; max-width: 650px; box-shadow: 0 8px 30px rgba(0,0,0,0.4);">
-        <h3 style="color: var(--neon-cyan); margin-bottom: 8px; font-size: 1.3rem;">🏁 READY TO SUBMIT YOUR QUIZ?</h3>
-        <p id="quizProgressText" style="color: var(--text-bright); font-size: 1rem; margin-bottom: 18px;">
-          Answered: <strong>${answeredCount} / ${quizData.length}</strong> questions
+  if (quizCompletedState) {
+    container.innerHTML = `
+      <div style="background: var(--bg-card); border: 2px solid var(--neon-green); border-radius: 14px; padding: 40px 24px; text-align: center; max-width: 680px; margin: 20px auto; box-shadow: 0 10px 40px rgba(0,255,100,0.15);">
+        <div style="font-size: 3.5rem; margin-bottom: 12px;">🎉</div>
+        <h2 style="color: var(--neon-green); font-size: 1.8rem; margin-bottom: 8px; letter-spacing: 1px;">QUIZ ASSESSMENT COMPLETED!</h2>
+        <div class="badge badge-easy" style="font-size: 1.05rem; padding: 6px 20px; margin: 10px auto 20px auto; display: inline-block;">
+          POD: ${escapeHtml(currentTeam)}
+        </div>
+        <p style="color: var(--text-bright); font-size: 1.1rem; margin-bottom: 10px;">
+          Your responses for <strong>${answeredCount} / ${quizData.length}</strong> questions have been submitted and locked.
         </p>
-        <button class="btn-cyber btn-green" style="font-size: 1.1rem; padding: 14px 38px; font-weight: bold; width: 100%; max-width: 380px; margin: 0 auto;" onclick="confirmFinishQuiz()">
-          ⚡ Final Submit Quiz
-        </button>
-        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 12px; margin-bottom: 0;">
-          ⚠️ Once you click Final Submit, your answers are permanently locked and cannot be changed!
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 28px; line-height: 1.6;">
+          🔒 Assessment timer has stopped and fullscreen mode has ended.<br>
+          Scores and standings are being calculated live on the main auditorium screen!
         </p>
+        <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn-cyber btn-cyan" onclick="logoutStudent('Assessment completed. Logged out successfully.')" style="font-size: 1.05rem; padding: 12px 28px; font-weight: bold;">
+            🚪 Exit Assessment & Log Out
+          </button>
+          <button class="btn-cyber" onclick="toggleReviewAnswers()" id="btnToggleReview" style="font-size: 1rem; padding: 12px 22px;">
+            👁️ Review Submitted Answers (Read-Only)
+          </button>
+        </div>
+        <div id="reviewAnswersContainer" style="display: none; margin-top: 32px; text-align: left;">
+          <hr style="border-color: rgba(255,255,255,0.1); margin-bottom: 24px;">
+          <h4 style="color: var(--neon-cyan); margin-bottom: 16px; text-align: center;">YOUR SUBMITTED RESPONSES:</h4>
+          ${cardsHtml}
+        </div>
       </div>
     `;
+    return;
   }
 
-  container.innerHTML = completionBanner + cardsHtml + finishCard;
+  const finishCard = `
+    <div style="background: var(--bg-card); border: 2px solid var(--neon-cyan); border-radius: 12px; padding: 26px; text-align: center; margin: 30px auto; max-width: 650px; box-shadow: 0 8px 30px rgba(0,0,0,0.4);">
+      <h3 style="color: var(--neon-cyan); margin-bottom: 8px; font-size: 1.3rem;">🏁 READY TO SUBMIT YOUR QUIZ?</h3>
+      <p id="quizProgressText" style="color: var(--text-bright); font-size: 1rem; margin-bottom: 18px;">
+        Answered: <strong>${answeredCount} / ${quizData.length}</strong> questions
+      </p>
+      <button id="btnFinalSubmitQuiz" class="btn-cyber ${answeredCount === quizData.length && quizData.length > 0 ? 'btn-green' : 'btn-cyan'}" style="font-size: 1.1rem; padding: 14px 38px; font-weight: bold; width: 100%; max-width: 420px; margin: 0 auto; ${answeredCount === quizData.length && quizData.length > 0 ? 'box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);' : ''}" onclick="confirmFinishQuiz()">
+        ${answeredCount === quizData.length && quizData.length > 0 ? '⚡ Submit & Complete Quiz Now' : '⚡ Final Submit Quiz'}
+      </button>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 12px; margin-bottom: 0;">
+        ⚠️ Once you click Final Submit, your answers are permanently locked and cannot be changed!
+      </p>
+    </div>
+  `;
+
+  container.innerHTML = cardsHtml + finishCard;
 }
 
 async function handleMcqSelect(qid, optIdx) {
@@ -814,27 +842,102 @@ async function handleShortAnswerSave(qid, showToastMsg) {
   }
 }
 
+let hasPromptedAllAnswered = false;
+
 function updateQuizProgressCount() {
+  const answeredCount = quizData.filter(q => q.answered).length;
+  const totalCount = quizData.length;
   const progressEl = document.getElementById('quizProgressText');
   if (progressEl) {
-    const answeredCount = quizData.filter(q => q.answered).length;
-    progressEl.innerHTML = `Answered: <strong>${answeredCount} / ${quizData.length}</strong> questions`;
+    progressEl.innerHTML = `Answered: <strong>${answeredCount} / ${totalCount}</strong> questions`;
+  }
+  const submitBtn = document.getElementById('btnFinalSubmitQuiz');
+  if (submitBtn) {
+    if (answeredCount === totalCount && totalCount > 0) {
+      submitBtn.innerHTML = `⚡ Submit & Complete Quiz Now (All ${totalCount} Done!)`;
+      submitBtn.className = 'btn-cyber btn-green';
+      submitBtn.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.6)';
+    } else {
+      submitBtn.innerHTML = `⚡ Final Submit Quiz (${answeredCount} / ${totalCount})`;
+    }
+  }
+
+  // The moment all questions are answered, prompt the user immediately!
+  if (answeredCount === totalCount && totalCount > 0 && !quizCompletedState && !hasPromptedAllAnswered) {
+    hasPromptedAllAnswered = true;
+    showAllQuestionsAnsweredModal();
   }
 }
 
-async function confirmFinishQuiz() {
+function showAllQuestionsAnsweredModal() {
+  let m = document.getElementById('allQuestionsAnsweredModal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'allQuestionsAnsweredModal';
+    m.className = 'modal-overlay';
+    m.style.display = 'none';
+    m.style.zIndex = '9999';
+    m.innerHTML = `
+      <div class="modal-card" style="text-align: center; border: 2px solid var(--neon-green); max-width: 480px; box-shadow: 0 10px 40px rgba(0, 255, 100, 0.25);">
+        <div style="font-size: 3.2rem; margin-bottom: 8px;">🏁</div>
+        <h3 style="color: var(--neon-green); margin-bottom: 8px; font-size: 1.35rem;">ALL QUESTIONS ANSWERED!</h3>
+        <p style="color: var(--text-bright); font-size: 1.05rem; margin-bottom: 8px;">
+          You have completed all <strong>${quizData.length}</strong> questions!
+        </p>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">
+          Would you like to finalize and submit your quiz now?
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn-cyber btn-green" onclick="submitFinalQuizNow()" style="padding: 12px 26px; font-weight: bold; font-size: 1rem;">
+            ⚡ Submit Quiz Now
+          </button>
+          <button class="btn-cyber" onclick="closeFinishPromptModal()" style="padding: 12px 20px; font-size: 0.95rem;">
+            Review Answers
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(m);
+  }
+  m.style.display = 'flex';
+}
+
+function submitFinalQuizNow() {
+  closeFinishPromptModal();
+  confirmFinishQuiz(true);
+}
+
+function closeFinishPromptModal() {
+  const m = document.getElementById('allQuestionsAnsweredModal');
+  if (m) m.style.display = 'none';
+}
+
+function toggleReviewAnswers() {
+  const container = document.getElementById('reviewAnswersContainer');
+  const btn = document.getElementById('btnToggleReview');
+  if (!container || !btn) return;
+  const isHidden = container.style.display === 'none';
+  container.style.display = isHidden ? 'block' : 'none';
+  btn.textContent = isHidden ? '🙈 Hide Review' : '👁️ Review Submitted Answers (Read-Only)';
+}
+
+async function confirmFinishQuiz(skipConfirm = false) {
   if (!currentTeam || quizCompletedState) return;
   const answeredCount = quizData.filter(q => q.answered).length;
   const totalCount = quizData.length;
   const unanswered = totalCount - answeredCount;
 
-  let msg = `Ready to submit your final quiz answers?\n\n• Answered: ${answeredCount} / ${totalCount}\n`;
-  if (unanswered > 0) {
-    msg += `• Unanswered: ${unanswered} (will be marked 0 pts)\n`;
-  }
-  msg += `\n⚠️ Once submitted, you cannot change your answers!`;
+  if (!skipConfirm) {
+    let msg = `Ready to submit your final quiz answers?\n\n• Answered: ${answeredCount} / ${totalCount}\n`;
+    if (unanswered > 0) {
+      msg += `• Unanswered: ${unanswered} (will be marked 0 pts)\n`;
+    }
+    msg += `\n⚠️ Once submitted, you cannot change your answers!`;
 
-  if (!confirm(msg)) return;
+    if (!confirm(msg)) return;
+  }
+
+  closeFinishPromptModal();
 
   try {
     const res = await fetch('/api/quiz/finish', {
@@ -846,7 +949,10 @@ async function confirmFinishQuiz() {
     if (data.success) {
       quizCompletedState = true;
       isAssessmentStarted = false;
-      if (timerInterval) clearInterval(timerInterval);
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
       if (document.fullscreenElement && document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
       }
@@ -863,6 +969,7 @@ async function confirmFinishQuiz() {
 
 async function submitFinalQuizAuto() {
   if (!currentTeam || quizCompletedState) return;
+  closeFinishPromptModal();
   try {
     await fetch('/api/quiz/finish', {
       method: 'POST',
@@ -871,7 +978,10 @@ async function submitFinalQuizAuto() {
     });
     quizCompletedState = true;
     isAssessmentStarted = false;
-    if (timerInterval) clearInterval(timerInterval);
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
     if (document.fullscreenElement && document.exitFullscreen) {
       document.exitFullscreen().catch(() => {});
     }
