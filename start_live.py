@@ -46,8 +46,8 @@ def drain_pipe(pipe):
 def kill_port_5000():
     """Ensures port 5000 is completely free on Windows before starting Waitress."""
     try:
-        out = subprocess.check_output('netstat -ano | findstr :5000', shell=True, text=True)
-        for line in out.strip().splitlines():
+        res = subprocess.run('netstat -ano | findstr :5000', shell=True, capture_output=True, text=True)
+        for line in res.stdout.strip().splitlines():
             parts = line.split()
             if len(parts) >= 5 and "LISTENING" in parts:
                 pid = parts[-1]
@@ -169,6 +169,24 @@ Closing this window will shut down the server and tunnel.
     live_link_path = os.path.join(BASE_DIR, "LIVE_LINK.txt")
     with open(live_link_path, "w", encoding="utf-8") as f:
         f.write(info_text)
+
+    # Save directly to user's Desktop for instant access
+    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+    if os.path.exists(desktop_path):
+        desktop_file = os.path.join(desktop_path, "WORKSHOP_LINKS.txt")
+        try:
+            with open(desktop_file, "w", encoding="utf-8") as df:
+                df.write(info_text)
+            print(f"[*] Saved session info to Desktop: {desktop_file}", flush=True)
+        except Exception:
+            pass
+
+    # Copy student URL to Windows clipboard automatically
+    try:
+        subprocess.run("clip", input=tunnel_url.strip(), text=True, check=False)
+        print("[+] Student link automatically COPIED to your clipboard! (Press Ctrl+V to paste)", flush=True)
+    except Exception:
+        pass
 
     print("\n" + info_text, flush=True)
     print(f"[*] Saved session info to: {live_link_path}", flush=True)
