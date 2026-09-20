@@ -693,12 +693,12 @@ def get_challenges():
     conn = get_db()
     cursor = conn.cursor()
     
-    solved_set = set()
+    submitted_set = set()
     unlocked_hints = set()
     
     if team_name:
-        cursor.execute("SELECT challenge_id FROM solves WHERE team_name = ? COLLATE NOCASE", (team_name,))
-        solved_set = {row["challenge_id"] for row in cursor.fetchall()}
+        cursor.execute("SELECT DISTINCT challenge_id FROM submissions_log WHERE team_name = ? COLLATE NOCASE", (team_name,))
+        submitted_set = {row["challenge_id"] for row in cursor.fetchall()}
         cursor.execute("SELECT challenge_id FROM hints_unlocked WHERE team_name = ? COLLATE NOCASE", (team_name,))
         unlocked_hints = {row["challenge_id"] for row in cursor.fetchall()}
     
@@ -708,7 +708,7 @@ def get_challenges():
             continue
 
         cid = ch.get("id")
-        is_solved = cid in solved_set
+        is_submitted = cid in submitted_set
         is_hint_unlocked = cid in unlocked_hints
         
         item = {
@@ -716,13 +716,14 @@ def get_challenges():
             "title": ch.get("title"),
             "category": ch.get("category"),
             "difficulty": ch.get("difficulty", "easy"),
-            "points": ch.get("points", 100),
+            "points": ch.get("points", 20),
             "description": ch.get("description", ""),
             "has_hint": bool(ch.get("hint")),
             "hint_cost": ch.get("hint_cost", 0),
             "hint_unlocked": is_hint_unlocked,
             "hint": ch.get("hint") if is_hint_unlocked else None,
-            "solved": is_solved,
+            "solved": is_submitted,
+            "submitted": is_submitted,
             "files": ch.get("files", [])
         }
         sanitized.append(item)
@@ -776,25 +777,28 @@ def submit_flag():
     conn = get_db()
     cursor = conn.cursor()
     try:
+        # Check if already submitted
+        cursor.execute("SELECT id FROM submissions_log WHERE team_name = ? COLLATE NOCASE AND challenge_id = ?", (team_name, challenge_id))
+        if cursor.fetchone():
+            conn.commit()
+            return jsonify({"success": False, "message": "Answer already recorded for this question."}), 400
+
         cursor.execute("""
             INSERT INTO submissions_log (team_name, challenge_id, submitted_flag, is_correct, ip_address)
             VALUES (?, ?, ?, ?, ?)
         """, (team_name, challenge_id, submitted_flag, is_correct, client_ip))
         
-        if not is_correct:
-            conn.commit()
-            return jsonify({"success": False, "message": "Incorrect answer. Check syntax or hint!"})
-            
-        cursor.execute("SELECT id FROM solves WHERE team_name = ? COLLATE NOCASE AND challenge_id = ?", (team_name, challenge_id))
-        if cursor.fetchone():
-            conn.commit()
-            return jsonify({"success": False, "message": "Challenge already solved by your pod!"})
-            
         cursor.execute("INSERT OR IGNORE INTO teams (name) VALUES (?)", (team_name,))
-        cursor.execute("INSERT INTO solves (team_name, challenge_id, points) VALUES (?, ?, ?)", (team_name, challenge_id, points))
+        if is_correct:
+            cursor.execute("INSERT OR IGNORE INTO solves (team_name, challenge_id, points) VALUES (?, ?, ?)", (team_name, challenge_id, points))
+            
         conn.commit()
         invalidate_caches()
-        return jsonify({"success": True, "message": f"[+] Correct flag! +{points} points awarded.", "points": points})
+        return jsonify({
+            "success": True, 
+            "message": "Answer recorded successfully!", 
+            "submitted": True
+        })
     finally:
         conn.close()
 

@@ -1078,7 +1078,7 @@ function renderCTF() {
   }
 
   container.innerHTML = challengesData.map((ch, idx) => {
-    const isSolved = ch.solved;
+    const isSubmitted = ch.submitted || ch.solved;
 
     let hintHtml = '';
     if (ch.has_hint) {
@@ -1088,7 +1088,7 @@ function renderCTF() {
             <strong>[!] HINT:</strong> ${escapeHtml(ch.hint)}
           </div>
         `;
-      } else {
+      } else if (!isSubmitted) {
         hintHtml = `
           <div style="margin: 12px 0;">
             <button type="button" class="btn-cyber" style="border-color: var(--neon-amber); color: var(--neon-amber); font-size:0.85rem;" onclick="unlockCTFHint('${escapeHtml(ch.id)}')">
@@ -1100,10 +1100,10 @@ function renderCTF() {
     }
 
     return `
-      <div class="challenge-card ${isSolved ? 'solved' : ''}" id="ctf-card-${ch.id}">
+      <div class="challenge-card ${isSubmitted ? 'submitted' : ''}" id="ctf-card-${ch.id}">
         <div class="card-header">
           <div class="card-tags">
-            <span class="badge badge-cat" style="font-weight: 800;">CTF #${idx + 1}</span>
+            <span class="badge badge-cat" style="font-weight: 800;">QUESTION #${idx + 1}</span>
             <span class="badge badge-cat">${escapeHtml(ch.category)}</span>
             <span class="badge badge-${escapeHtml(ch.difficulty)}">${escapeHtml(ch.difficulty)}</span>
           </div>
@@ -1112,12 +1112,14 @@ function renderCTF() {
 
         <div class="card-title">${escapeHtml(ch.title)}</div>
 
-        <div class="solved-banner">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          SOLVED (+${ch.points} PTS)
-        </div>
+        ${isSubmitted ? `
+          <div class="solved-banner" style="display: flex; align-items: center; gap: 8px; background: rgba(56, 189, 248, 0.12); border: 1px solid var(--neon-cyan); color: var(--neon-cyan); padding: 8px 16px; border-radius: 6px; font-weight: bold; margin: 12px 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            ANSWER RECORDED
+          </div>
+        ` : ''}
 
         <div class="card-desc">
           ${ch.description}
@@ -1130,13 +1132,13 @@ function renderCTF() {
             type="text" 
             class="flag-input" 
             id="flag-${escapeHtml(ch.id)}" 
-            placeholder="${isSolved ? 'Solved!' : 'Enter your answer or command...'}" 
-            ${isSolved ? 'disabled' : ''} 
+            placeholder="${isSubmitted ? 'Answer submitted' : 'Enter your answer or command...'}" 
+            ${isSubmitted ? 'disabled' : ''} 
             autocomplete="off"
             required
           >
-          <button type="submit" class="btn-cyber btn-green btn-submit" ${isSolved ? 'disabled' : ''}>
-            ${isSolved ? 'Solved' : 'Submit Answer'}
+          <button type="submit" class="btn-cyber ${isSubmitted ? '' : 'btn-cyan'} btn-submit" ${isSubmitted ? 'disabled' : ''}>
+            ${isSubmitted ? 'Recorded' : 'Submit Answer'}
           </button>
         </form>
       </div>
@@ -1172,7 +1174,7 @@ async function handleCTFSubmit(event, challengeId) {
     });
     const data = await res.json();
     if (data.success) {
-      showToast(data.message, 'success');
+      showToast(data.message || 'Answer recorded successfully!', 'info');
       await loadCTFData();
       await updatePodScore();
     } else {
@@ -1180,7 +1182,7 @@ async function handleCTFSubmit(event, challengeId) {
       if (btn) btn.disabled = false;
     }
   } catch (err) {
-    showToast('Network error submitting flag.', 'error');
+    showToast('Network error submitting answer.', 'error');
     if (btn) btn.disabled = false;
   }
 }
