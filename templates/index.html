@@ -45,100 +45,40 @@
     </div>
   </header>
 
-  <!-- Sticky Assessment Countdown & Anti-Cheat Bar -->
+  <!-- Sticky Anti-Cheat Fullscreen Bar -->
   <div id="assessmentBar" class="assessment-bar" style="display: none;">
     <div class="container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 auto; padding: 0;">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <span style="font-weight: bold; color: var(--neon-cyan); font-size: 1rem;">⏱️ ASSESSMENT TIMER:</span>
-        <span id="assessmentCountdown" style="font-family: var(--font-mono); font-size: 1.25rem; font-weight: 900; color: var(--neon-green);">--:--</span>
-      </div>
       <div style="display: flex; align-items: center; gap: 10px;">
         <span id="fullscreenStatusBadge" class="badge badge-easy">⛶ FULLSCREEN LOCKED</span>
         <button id="btnEnterFullscreen" class="btn-cyber btn-cyan" style="display: none; padding: 4px 10px; font-size: 0.8rem;" onclick="resumeAssessmentFullscreen()">
           ⛶ Re-enter Fullscreen
         </button>
       </div>
+      <div style="color: var(--neon-green); font-weight: bold; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+        <span>🚩 SUNDAY CTF ARENA</span>
+        <span class="badge badge-easy" style="font-size: 0.75rem;">LIVE</span>
+      </div>
     </div>
   </div>
 
   <!-- Hero Banner -->
   <section class="hero-banner">
-    <h1 class="hero-title">COLLEGE CYBERSECURITY <span>WORKSHOP</span></h1>
+    <h1 class="hero-title">SUNDAY <span>CTF ARENA</span></h1>
     <p class="hero-sub">
-      2-Day Assessment: Saturday Knowledge Quiz + Sunday Hands-on CTF Challenges. 
-      Solve tasks as a pod to rank up on the main hall projector screen!
+      Hands-on Flag Challenges. Inspect code, reverse ciphers, and find secret flags in <code>CTF{...}</code> format. Solve tasks as a pod to rank up on the live auditorium leaderboard!
     </p>
-
-    <!-- Section Switcher Tabs -->
-    <div class="section-nav">
-      <button class="section-nav-btn active" data-section="quiz">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-          <polyline points="14 2 14 8 20 8"></polyline>
-          <line x1="16" y1="13" x2="8" y2="13"></line>
-          <line x1="16" y1="17" x2="8" y2="17"></line>
-          <polyline points="10 9 9 9 8 9"></polyline>
-        </svg>
-        <span>SATURDAY: QUIZ SECTION</span>
-        <span class="section-status-tag status-open" id="quizStatusTag">OPEN</span>
-      </button>
-
-      <button class="section-nav-btn" data-section="ctf">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-          <polyline points="2 17 12 22 22 17"></polyline>
-          <polyline points="2 12 12 17 22 12"></polyline>
-        </svg>
-        <span>SUNDAY: CTF ARENA</span>
-        <span class="section-status-tag status-open" id="ctfStatusTag">OPEN</span>
-      </button>
-    </div>
   </section>
 
   <!-- Main Content Container -->
   <main class="container">
 
-    <!-- Start Assessment Card (Prompt to enter fullscreen) -->
-    <div id="startAssessmentCard" style="display: none; max-width: 850px; margin: 20px auto; background: var(--bg-card); border: 2px solid var(--neon-cyan); border-radius: 10px; padding: 28px; text-align: center; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);">
-      <h2 style="color: var(--neon-cyan); margin-bottom: 10px; font-size: 1.4rem;">🚀 READY TO BEGIN YOUR ASSESSMENT?</h2>
-      <p style="color: var(--text-bright); font-size: 1rem; max-width: 620px; margin: 0 auto 18px auto; line-height: 1.6;">
-        Click below to enter <strong>Fullscreen Mode</strong> and start your pod's official timer.
-        <br><span style="color: var(--neon-amber); font-size: 0.9rem;">⚠️ Note: Exiting fullscreen or switching tabs logs an anti-cheat violation to the organizer leaderboard!</span>
-      </p>
-      <button class="btn-cyber btn-green" style="font-size: 1.1rem; padding: 14px 32px; font-weight: bold;" onclick="startAssessmentWithFullscreen()">
-        ⚡ Start Assessment & Lock Fullscreen
-      </button>
-    </div>
-
-    <!-- ========================================================= -->
-    <!-- VIEW 1: SATURDAY QUIZ VIEW                                -->
-    <!-- ========================================================= -->
-    <section id="quizSectionView">
-      <div style="max-width: 850px; margin: 0 auto;">
-        <div id="quizInfoBanner" style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; display: none;">
-          <strong style="color: var(--neon-cyan);">📝 SATURDAY KNOWLEDGE QUIZ:</strong>
-          <span style="color: var(--text-muted); font-size: 0.95rem;">
-            Answer the multiple-choice and short-answer questions below. Each pod submits once; correct answers boost your combined score!
-          </span>
-        </div>
-
-        <div id="quizQuestionsContainer">
-          <div style="text-align: center; color: var(--text-muted); padding: 40px;">
-            Loading quiz questions...
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========================================================= -->
-    <!-- VIEW 2: SUNDAY CTF VIEW                                   -->
-    <!-- ========================================================= -->
-    <section id="ctfSectionView" style="display: none;">
+    <!-- SUNDAY CTF VIEW -->
+    <section id="ctfSectionView" style="display: block;">
       <div style="max-width: 850px; margin: 0 auto;">
         <div id="ctfInfoBanner" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; display: none;">
           <strong style="color: var(--neon-green);">🚩 SUNDAY HANDS-ON CTF:</strong>
           <span style="color: var(--text-muted); font-size: 0.95rem;">
-            Inspect network logs, reverse ciphers, and find secret flags in <code>CTF{...}</code> format. Optional hints deduct points from your CTF score.
+            Inspect network logs, reverse ciphers, and find secret flags in <code>CTF{...}</code> format. Submit flags at your own pace!
           </span>
         </div>
 

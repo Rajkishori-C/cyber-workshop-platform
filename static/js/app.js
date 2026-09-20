@@ -12,29 +12,18 @@
 
 // State
 let currentTeam = localStorage.getItem('ctf_team') || '';
-let currentSection = 'quiz'; // 'quiz' or 'ctf'
-let sectionsStatus = { quiz: { is_open: false }, ctf: { is_open: false } };
-let quizData = [];
+let currentSection = 'ctf'; // Pure Sunday CTF Arena
+let sectionsStatus = { quiz: { is_open: false }, ctf: { is_open: true } };
 let challengesData = [];
 
-// Timer & Assessment State
-let assessmentStartTime = null;
-let timerDurationMinutes = 60;
-let timerInterval = null;
-let isAssessmentStarted = false;
+// Assessment & Anti-Cheat State (No Countdown Timer for CTF)
 let isCtfAssessmentStarted = false;
 let violationCount = 0;
 let isHandlingViolation = false;
 
 function isAntiCheatActive() {
   if (!currentTeam) return false;
-  if (currentSection === 'quiz') {
-    return isAssessmentStarted && !quizCompletedState;
-  }
-  if (currentSection === 'ctf') {
-    return isCtfAssessmentStarted;
-  }
-  return false;
+  return isCtfAssessmentStarted;
 }
 
 function escapeHtml(str) {
@@ -62,8 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   await refreshSectionStatus();
-  await loadQuizData();
-  await loadCTFData();
+  await loadCTFData(true);
   await updatePodScore();
 
   // Polling intervals (Optimized for 135+ simultaneous participants)
@@ -256,14 +244,7 @@ function logoutStudent(toastMsg) {
   }
   currentTeam = '';
   localStorage.removeItem('ctf_team');
-  isAssessmentStarted = false;
   isCtfAssessmentStarted = false;
-  quizCompletedState = false;
-  hasPromptedAllAnswered = false;
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
 
   updateTeamUI(null);
   hideAssessmentUI();
@@ -271,7 +252,6 @@ function logoutStudent(toastMsg) {
   if (toastMsg) showToast(toastMsg, 'info');
   showRoleGateway();
 
-  loadQuizData(true);
   loadCTFData(true);
 }
 
@@ -288,16 +268,6 @@ async function verifyCurrentTeam() {
     if (!data.exists) {
       // Pod was deleted or wiped by admin!
       logoutStudent("Your pod was cleared or reset by the event organizer. Please rejoin.");
-    } else if (data.quiz_completed) {
-      quizCompletedState = true;
-      isAssessmentStarted = false;
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
-      hideAssessmentUI();
-    } else if (data.start_time && !isAssessmentStarted && !quizCompletedState) {
-      initAssessmentTimer(data.start_time);
     }
   } catch (err) {}
 }
@@ -465,48 +435,8 @@ async function refreshSectionStatus() {
     const res = await fetch('/api/sections/status', { cache: 'no-store' });
     const data = await res.json();
     sectionsStatus = data;
-    if (data.timer_duration_minutes) {
-      timerDurationMinutes = data.timer_duration_minutes;
-    }
-
-    const quizTag = document.getElementById('quizStatusTag');
-    const ctfTag = document.getElementById('ctfStatusTag');
-
-    if (quizTag) {
-      const open = sectionsStatus.quiz && sectionsStatus.quiz.is_open;
-      quizTag.textContent = open ? 'OPEN' : 'LOCKED';
-      quizTag.className = `section-status-tag ${open ? 'status-open' : 'status-locked'}`;
-    }
-
-    if (ctfTag) {
-      const open = sectionsStatus.ctf && sectionsStatus.ctf.is_open;
-      ctfTag.textContent = open ? 'OPEN' : 'LOCKED';
-      ctfTag.className = `section-status-tag ${open ? 'status-open' : 'status-locked'}`;
-    }
-
-    // Live refresh data from server to catch admin deletions/additions
-    if (currentSection === 'quiz') {
-      await loadQuizData(false);
-    } else {
-      await loadCTFData(false);
-    }
+    await loadCTFData(false);
   } catch (err) {}
-}
-
-function switchSectionView(section) {
-  const quizView = document.getElementById('quizSectionView');
-  const ctfView = document.getElementById('ctfSectionView');
-
-  if (section === 'quiz') {
-    if (quizView) quizView.style.display = 'block';
-    if (ctfView) ctfView.style.display = 'none';
-    renderQuiz();
-  } else {
-    if (quizView) quizView.style.display = 'none';
-    if (ctfView) ctfView.style.display = 'block';
-    hideStartAssessmentCard();
-    renderCTF();
-  }
 }
 
 // -------------------------------------------------------------

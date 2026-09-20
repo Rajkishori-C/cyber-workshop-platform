@@ -747,22 +747,6 @@ def submit_flag():
     if not team_name or not challenge_id or not submitted_flag:
         return jsonify({"success": False, "message": "Missing pod name, challenge ID, or flag."}), 400
 
-    settings = load_settings()
-    conn_chk = get_db()
-    c_chk = conn_chk.cursor()
-    c_chk.execute("SELECT start_time FROM teams WHERE name = ? COLLATE NOCASE", (team_name,))
-    t_row = c_chk.fetchone()
-    conn_chk.close()
-    if t_row and t_row["start_time"]:
-        try:
-            st = datetime.datetime.fromisoformat(t_row["start_time"].replace(" ", "T"))
-            elapsed = (datetime.datetime.now() - st).total_seconds()
-            timer_limit = int(settings.get("timer_duration_minutes", 60)) * 60 + 60
-            if elapsed > timer_limit:
-                return jsonify({"success": False, "message": "Assessment timer has expired for your pod!"}), 403
-        except Exception:
-            pass
-        
     if is_rate_limited(team_name.lower()):
         return jsonify({"success": False, "message": "Submitting too fast! Wait 5 seconds."}), 429
     

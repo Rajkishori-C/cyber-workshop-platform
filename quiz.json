@@ -1,70 +1,206 @@
 [
   {
     "id": "quiz-01",
-    "title": "Phishing Tactic Identification",
+    "title": "Terminal hands-on",
     "type": "mcq",
-    "category": "Social Engineering",
-    "question": "An employee receives an urgent email from 'support@paypa1-security.com' claiming their account will be suspended within 1 hour unless they verify their password. Which two attack techniques are primarily being demonstrated?",
-    "options": [
-      "Typosquatting (Look-alike domain) and Pretexting with artificial urgency",
-      "Man-in-the-Middle (MitM) and ARP Poisoning",
-      "SQL Injection and Cross-Site Request Forgery (CSRF)",
-      "Zero-day privilege escalation and Buffer Overflow"
-    ],
-    "correct_option": 0,
-    "points": 50,
+    "category": "Terminal",
+    "question": "According to the script's demonstration in Phase 04, what happens when you run sha256sum on a string of text, but change just one letter to a capital? (e.g., \"sudo access\" vs \"sudo Access\")",
+    "points": 20,
     "active": true,
-    "explanation": "The domain 'paypa1' uses the digit 1 instead of the letter 'l' (typosquatting), and the 1-hour deadline creates artificial urgency to bypass critical thinking."
+    "explanation": "",
+    "options": [
+      "The hash flips completely into an unrecognizably different string of characters.",
+      "Only the first few characters of the hash change, leaving the rest identical.",
+      "The command throws an error because Linux hashes are case-insensitive",
+      "The hash remains identical across both Kali and Termux because the words are technically the same."
+    ],
+    "correct_option": 0
   },
   {
     "id": "quiz-03",
-    "title": "Authentication Factor Types",
+    "title": "Terminal hands-on",
     "type": "mcq",
-    "category": "Identity & Access",
-    "question": "In Multi-Factor Authentication (MFA), which of the following represents 'Something You Are' (Inherence factor)?",
-    "options": [
-      "A 6-digit SMS one-time passcode (OTP)",
-      "A hardware FIDO2 USB security key",
-      "A biometric fingerprint or facial recognition scan",
-      "A 16-character alphanumeric master password"
-    ],
-    "correct_option": 2,
-    "points": 50,
+    "category": "Terminal",
+    "question": "The presenter creates a new file called audit.sh and is immediately denied permission to run it, even though they just created it. Why?",
+    "points": 20,
     "active": true,
-    "explanation": "Biometrics (fingerprints, retina, face scans) represent 'something you are'. Passwords are 'something you know', and hardware keys/phones are 'something you have'."
+    "explanation": "",
+    "options": [
+      "Termux's Android sandbox completely prevents custom scripts from running.",
+      "The user is logged in as kali instead of root.",
+      "In Linux, simply owning a file does not automatically grant you the x (execute) permission to run it as a program.",
+      "The ls -la command needs to be run first to unhide the file before execution."
+    ],
+    "correct_option": 2
   },
   {
     "id": "quiz-04",
-    "title": "Ransomware Defense",
+    "title": "Web Security & Input Validation",
     "type": "mcq",
-    "category": "Malware & Defense",
-    "question": "Which of the following backup strategies is considered the gold standard for surviving a destructive ransomware outbreak?",
-    "options": [
-      "Syncing files to a single shared network folder (SMB) with write access",
-      "The 3-2-1 Rule: 3 copies, on 2 different media types, with at least 1 copy stored offline or immutable",
-      "Relying solely on external hard drives continuously plugged into workstations",
-      "Creating weekly snapshots on the same primary virtual machine host"
-    ],
-    "correct_option": 1,
-    "points": 50,
+    "category": "Web Security",
+    "question": "Scenario: A user logs into a web portal. Instead of typing a normal username, they type a special sequence of characters into the input field, which tricks the database into bypassing the password check entirely. What is this common web vulnerability called?",
+    "points": 20,
     "active": true,
-    "explanation": "The 3-2-1 backup strategy ensures at least one immutable or offline/air-gapped copy exists that ransomware cannot encrypt or delete over the network."
+    "explanation": "",
+    "options": [
+      "Cross-Site Scripting (XSS)",
+      "SQL Injection (SQLi)",
+      "Phishing",
+      "Data Encryption"
+    ],
+    "correct_option": 1
   },
   {
     "id": "quiz-06",
-    "title": "Denial of Service Mechanisms",
+    "title": "The CIA Triad",
     "type": "mcq",
-    "category": "Network Security",
-    "question": "A Distributed Denial of Service (DDoS) attack utilizing thousands of compromised IoT smart cameras and routers coordinated by a Command & Control (C2) server is operating as a:",
-    "options": [
-      "Botnet",
-      "Honeypot",
-      "Reverse Proxy",
-      "Air Gap"
-    ],
-    "correct_option": 0,
-    "points": 50,
+    "category": "The CIA Triad",
+    "question": "During exam week, thousands of college students try to access the online results portal at the exact same time, causing the server to crash completely. Which pillar of the CIA Triad has been violated?",
+    "points": 20,
     "active": true,
-    "explanation": "A network of malware-infected devices controlled remotely by an attacker is called a botnet (such as the infamous Mirai botnet)."
+    "explanation": "",
+    "options": [
+      "Confidentiality",
+      "Integrity",
+      "Availability",
+      "Authentication"
+    ],
+    "correct_option": 2
+  },
+  {
+    "id": "quiz-1789806119",
+    "title": "Terminal hands-on",
+    "type": "mcq",
+    "category": "Terminal",
+    "question": "When the presenter runs the command cd /etc on a phone using Termux, what exactly is the user accessing?",
+    "points": 20,
+    "active": true,
+    "explanation": "",
+    "options": [
+      "The actual root control room of the Android operating system.",
+      "A private, sandboxed configuration folder located entirely inside Termux's app storage.",
+      "A simulated directory that doesn't physically exist on the phone's storage.",
+      "A globally shared directory that requires the sudo group to read."
+    ],
+    "correct_option": 1
+  },
+  {
+    "id": "quiz-1789806826",
+    "title": "Password Security & Termux/Terminal Usage",
+    "type": "mcq",
+    "category": "Password Security & Termux/Terminal Usage",
+    "question": "Why are passwords like 123456, password, or those containing your birth year considered dangerously weak by security professionals?",
+    "points": 20,
+    "active": true,
+    "explanation": "",
+    "options": [
+      "They are too long to type quickly on a mobile terminal.",
+      "They use special symbols that Termux cannot process.",
+      "They can be instantly cracked using automated dictionary and brute-force attacks.",
+      "They require a multi-factor authentication token."
+    ],
+    "correct_option": 2
+  },
+  {
+    "id": "quiz-1789806935",
+    "title": "Phishing",
+    "type": "mcq",
+    "category": "Phishing",
+    "question": "Which of the following is one of the most reliable \"red flags\" that an email might be a phishing attempt?",
+    "points": 20,
+    "active": true,
+    "explanation": "",
+    "options": [
+      "The email addresses you by your full, correct name.",
+      "The email arrives on a weekend or holiday.",
+      "The sender's email address contains a slight typo or uses an unofficial domain (e.g., support@microsoft-security-alert.com instead of   support@microsoft.com).",
+      "The email includes a standard signature block with a company logo."
+    ],
+    "correct_option": 2
+  },
+  {
+    "id": "quiz-1789807008",
+    "title": "Phishing",
+    "type": "mcq",
+    "category": "Phishing",
+    "question": "How does \"Spear Phishing\" differ from a standard, everyday phishing campaign?",
+    "points": 20,
+    "active": true,
+    "explanation": "",
+    "options": [
+      "Spear phishing uses malicious attachments, whereas standard phishing only uses malicious links.",
+      "Spear phishing is highly targeted, using personalized information (like your job title, recent projects, or colleagues' names) to trick a specific individual.",
+      "Spear phishing relies on sending identical emails to millions of random addresses hoping a small percentage will click.",
+      "Spear phishing only occurs over voice phone calls (Vishing)."
+    ],
+    "correct_option": 1
+  },
+  {
+    "id": "quiz-1789807098",
+    "title": "Phishing",
+    "type": "mcq",
+    "category": "Phishing",
+    "question": "You receive an urgent email claiming your bank account will be permanently suspended in 24 hours unless you click a link to verify your password. What is the safest course of action?",
+    "points": 20,
+    "active": true,
+    "explanation": "",
+    "options": [
+      "Click the link, but carefully check if the resulting website's design looks authentic before typing your password.",
+      "Reply directly to the email and ask the sender for proof that they are really from the bank",
+      "Forward the email to your coworkers to ask for their opinion on whether it looks real.",
+      "Do not click the link. Open your web browser, manually type in your bank's official website URL, log in, and check for any secure messages or   alerts."
+    ],
+    "correct_option": 3
+  },
+  {
+    "id": "quiz-1789807171",
+    "title": "Cyber security basics",
+    "type": "mcq",
+    "category": "Cyber security basics",
+    "question": "\"What does a pentester do?\"",
+    "points": 20,
+    "active": true,
+    "explanation": "",
+    "options": [
+      "They steal data from companies",
+      "They find weaknesses in systems with authorization",
+      "They protect servers from attacks",
+      "They work in banks only"
+    ],
+    "correct_option": 1
+  },
+  {
+    "id": "quiz-1789807232",
+    "title": "Cyber security basics",
+    "type": "mcq",
+    "category": "Cyber security basics",
+    "question": "\"A cybersecurity expert breaks into a company's system to show them their security gaps. The company hired them to do this. Is this white hat or black hat?\"",
+    "points": 20,
+    "active": true,
+    "explanation": "",
+    "options": [
+      "White hat \u2014 they had permission",
+      "Black hat \u2014 breaking in is always illegal",
+      "Grey hat \u2014 it's risky either way",
+      "Neither, it's just consulting"
+    ],
+    "correct_option": 0
+  },
+  {
+    "id": "quiz-1789807365",
+    "title": "Cyber security basics",
+    "type": "mcq",
+    "category": "Cyber security basics",
+    "question": "\"You get an email from 'IT Support' asking you to click a link and verify your password urgently. The email has your company's logo. What threat is this?\"",
+    "points": 20,
+    "active": true,
+    "explanation": "",
+    "options": [
+      "Malware",
+      "Ransomware",
+      "Phishing",
+      "Data breach"
+    ],
+    "correct_option": 2
   }
 ]
