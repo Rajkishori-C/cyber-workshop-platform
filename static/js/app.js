@@ -52,12 +52,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await refreshSectionStatus();
   await loadCTFData(true);
-  await updatePodScore();
 
-  // Polling intervals (Optimized for 135+ simultaneous participants)
-  setInterval(updatePodScore, 6000);
-  setInterval(refreshSectionStatus, 5000);
-  setInterval(verifyCurrentTeam, 8000);
+  // Polling intervals (Optimized for 90-135+ simultaneous participants)
+  setInterval(refreshSectionStatus, 10000);
+  setInterval(verifyCurrentTeam, 12000);
 });
 
 function setupEventListeners() {
@@ -430,12 +428,17 @@ function isStudentTyping(containerId) {
 // -------------------------------------------------------------
 // Section Switcher & Status
 // -------------------------------------------------------------
+let lastSectionStateOpen = null;
 async function refreshSectionStatus() {
   try {
     const res = await fetch('/api/sections/status', { cache: 'no-store' });
     const data = await res.json();
     sectionsStatus = data;
-    await loadCTFData(false);
+    const isNowOpen = Boolean(data.ctf && data.ctf.is_open);
+    if (lastSectionStateOpen === null || lastSectionStateOpen !== isNowOpen) {
+      lastSectionStateOpen = isNowOpen;
+      await loadCTFData(false);
+    }
   } catch (err) {}
 }
 

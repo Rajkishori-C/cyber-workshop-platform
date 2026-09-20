@@ -195,10 +195,10 @@ def add_security_headers(response):
 # Database Setup
 # -------------------------------------------------------------
 def get_db():
-    conn = sqlite3.connect(DB_FILE, timeout=10.0)
+    conn = sqlite3.connect(DB_FILE, timeout=20.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL;")
-    conn.execute("PRAGMA busy_timeout = 5000;")
+    conn.execute("PRAGMA busy_timeout = 15000;")
     conn.execute("PRAGMA synchronous = NORMAL;")
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
@@ -287,6 +287,11 @@ def init_db():
     sub_cols = [row["name"] for row in cursor.fetchall()]
     if "ip_address" not in sub_cols:
         cursor.execute("ALTER TABLE submissions_log ADD COLUMN ip_address TEXT")
+
+    # High-concurrency performance indexes
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_sub_log_team_chal ON submissions_log(team_name COLLATE NOCASE, challenge_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_solves_team ON solves(team_name COLLATE NOCASE)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_hints_team ON hints_unlocked(team_name COLLATE NOCASE)")
 
     conn.commit()
     conn.close()
@@ -1251,8 +1256,8 @@ if __name__ == "__main__":
 
     try:
         from waitress import serve
-        print(f"[*] Starting production Waitress WSGI server on 0.0.0.0:{port} (16 threads)...")
-        serve(app, host="0.0.0.0", port=port, threads=16)
+        print(f"[*] Starting production Waitress WSGI server on 0.0.0.0:{port} (32 threads)...")
+        serve(app, host="0.0.0.0", port=port, threads=32, channel_timeout=35)
     except ImportError:
         print(f"[!] Falling back to Flask server on 0.0.0.0:{port}...")
         app.run(host="0.0.0.0", port=port, threaded=True)
