@@ -70,7 +70,10 @@ class AssessmentTestSuite(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         # Restore settings and quiz data
-        save_settings(cls.orig_settings)
+        restore_s = dict(cls.orig_settings)
+        restore_s["ctf_enabled"] = True
+        restore_s["quiz_enabled"] = False
+        save_settings(restore_s)
         save_quiz(cls.orig_quiz)
 
         # Restore live database pointer
@@ -137,17 +140,17 @@ class AssessmentTestSuite(unittest.TestCase):
         print("[+] PASS: Server-side flag stripping verified.")
 
     def test_05_flag_submission(self):
-        """Test submitting the demo flag."""
+        """Test submitting the first challenge answer with case-insensitivity."""
         team = "Pod_Alpha_01"
         res = self.client.post('/api/submit', json={
             "team": team,
-            "challenge_id": "demo-01",
-            "flag": "CTF{welcome_to_cyber_workshop_2026}"
+            "challenge_id": "term-01",
+            "flag": "LS -LA"  # Test uppercase case-insensitivity
         })
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertTrue(data["success"])
-        self.assertEqual(data["points"], 50)
+        self.assertEqual(data["points"], 20)
         print("[+] PASS: Flag submission verified.")
 
     def test_06_admin_login_and_auth(self):
@@ -169,7 +172,7 @@ class AssessmentTestSuite(unittest.TestCase):
         demo_team = "DemoTestTeam_99"
         settings = load_settings()
         self.client.post('/api/team/login', json={"name": demo_team, "room_code": settings["room_code"]})
-        self.client.post('/api/submit', json={"team": demo_team, "challenge_id": "demo-01", "flag": "CTF{welcome_to_cyber_workshop_2026}"})
+        self.client.post('/api/submit', json={"team": demo_team, "challenge_id": "term-01", "flag": "ls -la"})
 
         # Admin logs in and deletes this demo team
         self.client.post('/admin/login', json={"password": settings.get("admin_password", "admin2026")})
@@ -188,12 +191,12 @@ class AssessmentTestSuite(unittest.TestCase):
         settings = load_settings()
         self.client.post('/admin/login', json={"password": settings.get("admin_password", "admin2026")})
 
-        # Toggle demo-01 active/hidden
-        toggle_res = self.client.post('/api/admin/challenge/toggle', json={"id": "demo-01"})
+        # Toggle term-01 active/hidden
+        toggle_res = self.client.post('/api/admin/challenge/toggle', json={"id": "term-01"})
         self.assertEqual(toggle_res.status_code, 200)
 
         # Restore
-        self.client.post('/api/admin/challenge/toggle', json={"id": "demo-01"})
+        self.client.post('/api/admin/challenge/toggle', json={"id": "term-01"})
         print("[+] PASS: Admin question visibility toggle verified.")
 
     def test_09_csv_export(self):
@@ -297,21 +300,17 @@ class AssessmentTestSuite(unittest.TestCase):
         print("[+] PASS: Quiz finalization and submission lock verified.")
 
     def test_14_combined_leaderboard_scoring(self):
-        """Verify combined leaderboard math: Total = Quiz Points + max(0, CTF Gross - CTF Deductions)."""
+        """Verify Sunday leaderboard math: Total = CTF Net Score (Quiz wiped out)."""
         res = self.client.get('/api/leaderboard')
         self.assertEqual(res.status_code, 200)
         lb = res.get_json()["leaderboard"]
         pod = next((t for t in lb if t["name"] == "Pod_Alpha_01"), None)
         self.assertIsNotNone(pod)
 
-        expected_quiz_points = (
-            getattr(AssessmentTestSuite, 'tested_mcq', {}).get("points", 50) +
-            getattr(AssessmentTestSuite, 'tested_sa', {}).get("points", 50)
-        )
-        self.assertEqual(pod["quiz_points"], expected_quiz_points)
-        self.assertEqual(pod["ctf_gross"], 50)
-        self.assertEqual(pod["total_score"], 50 + expected_quiz_points)
-        print("[+] PASS: Combined leaderboard scoring math verified.")
+        self.assertEqual(pod["ctf_gross"], 20)
+        self.assertEqual(pod["total_score"], 20)
+        self.assertEqual(pod["quiz_points"], 0)
+        print("[+] PASS: Sunday CTF-only leaderboard scoring math verified.")
 
     def test_15_section_status_and_lock_controls(self):
         """Test locking a section and confirming participant requests are blocked."""

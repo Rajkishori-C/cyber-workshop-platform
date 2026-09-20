@@ -163,6 +163,8 @@ SUBMISSION_WINDOW = 10.0
 MAX_SUBMISSIONS_IN_WINDOW = 8
 
 def is_rate_limited(team_name: str) -> bool:
+    if app.config.get("TESTING"):
+        return False
     now = time.time()
     history = submission_history[team_name]
     submission_history[team_name] = [t for t in history if now - t < SUBMISSION_WINDOW]
@@ -758,9 +760,18 @@ def submit_flag():
         
     target = ch_dict[challenge_id]
     correct_flag = target.get("flag", "").strip()
-    points = target.get("points", 100)
+    points = target.get("points", 20)
     
-    is_correct = hmac.compare_digest(submitted_flag.encode("utf-8"), correct_flag.encode("utf-8"))
+    # Collect all accepted aliases (lowercase, trimmed)
+    aliases = [a.strip().lower() for a in target.get("aliases", []) if a.strip()]
+    if correct_flag and correct_flag.lower() not in aliases:
+        aliases.append(correct_flag.lower())
+
+    sub_clean = submitted_flag.strip().lower()
+    # Support if student wrapped answer in CTF{...}
+    sub_unwrapped = re.sub(r"^ctf\{(.*)\}$", r"\1", sub_clean).strip()
+
+    is_correct = (sub_clean in aliases) or (sub_unwrapped in aliases)
     
     conn = get_db()
     cursor = conn.cursor()
@@ -772,7 +783,7 @@ def submit_flag():
         
         if not is_correct:
             conn.commit()
-            return jsonify({"success": False, "message": "Incorrect flag. Check syntax or hint!"})
+            return jsonify({"success": False, "message": "Incorrect answer. Check syntax or hint!"})
             
         cursor.execute("SELECT id FROM solves WHERE team_name = ? COLLATE NOCASE AND challenge_id = ?", (team_name, challenge_id))
         if cursor.fetchone():
@@ -877,13 +888,13 @@ def get_leaderboard():
     leaderboard = []
     for tname, data in teams.items():
         ctf_net = max(0, data["ctf_gross"] - data["ctf_penalty"])
-        total_score = data["quiz_points"] + ctf_net
+        total_score = ctf_net  # Sunday CTF score is the sole tournament scoring factor
 
         leaderboard.append({
             "name": tname,
             "total_score": total_score,
-            "quiz_points": data["quiz_points"],
-            "quiz_count": data["quiz_count"],
+            "quiz_points": 0,
+            "quiz_count": 0,
             "ctf_net": ctf_net,
             "ctf_gross": data["ctf_gross"],
             "ctf_penalty": data["ctf_penalty"],

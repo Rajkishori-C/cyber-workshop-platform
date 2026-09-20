@@ -156,10 +156,10 @@
   <!-- Top Header Bar -->
   <header class="projector-header">
     <div class="projector-title">
-      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
       </svg>
-      <span>WORKSHOP 2026 // COMBINED LIVE LEADERBOARD</span>
+      <span>SUNDAY CTF ARENA // LIVE AUDITORIUM LEADERBOARD</span>
     </div>
 
     <div style="display: flex; align-items: center; gap: 20px;">
@@ -184,19 +184,17 @@
       <div class="podium-team-name" id="podium2Name">-</div>
       <div class="podium-score" id="podium2Score">0 pts</div>
       <div class="podium-breakdown" id="podium2Breakdown">
-        <span class="badge badge-easy">Quiz: 0</span>
-        <span class="badge badge-cat">CTF: 0</span>
+        <span class="badge badge-cat">0/10 Solved</span>
       </div>
     </div>
 
-    <!-- Rank 1 (Gold) -->
+    <!-- Rank 1 -->
     <div class="podium-card podium-1" id="podium1">
       <div class="podium-rank-badge" style="color: #ffd700;">1ST</div>
-      <div class="podium-team-name" id="podium1Name" style="font-size: 1.7rem; color: #ffd700;">-</div>
-      <div class="podium-score" id="podium1Score" style="font-size: 2.2rem;">0 pts</div>
+      <div class="podium-team-name" id="podium1Name">-</div>
+      <div class="podium-score" id="podium1Score">0 pts</div>
       <div class="podium-breakdown" id="podium1Breakdown">
-        <span class="badge badge-easy">Quiz: 0</span>
-        <span class="badge badge-cat">CTF: 0</span>
+        <span class="badge badge-cat">0/10 Solved</span>
       </div>
     </div>
 
@@ -206,8 +204,7 @@
       <div class="podium-team-name" id="podium3Name">-</div>
       <div class="podium-score" id="podium3Score">0 pts</div>
       <div class="podium-breakdown" id="podium3Breakdown">
-        <span class="badge badge-easy">Quiz: 0</span>
-        <span class="badge badge-cat">CTF: 0</span>
+        <span class="badge badge-cat">0/10 Solved</span>
       </div>
     </div>
   </div>
@@ -219,8 +216,7 @@
         <th style="width: 70px;">Rank</th>
         <th>Pod Name</th>
         <th style="width: 160px;">Total Points</th>
-        <th style="width: 140px;">Saturday Quiz</th>
-        <th style="width: 140px;">Sunday CTF Net</th>
+        <th style="width: 140px;">Solved</th>
         <th style="width: 120px;">Deductions</th>
         <th style="width: 140px;">Anti-Cheat</th>
         <th style="width: 150px;">Last Activity</th>
@@ -228,7 +224,7 @@
     </thead>
     <tbody id="projectorTableBody">
       <tr>
-        <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">
+        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
           Synchronizing with central command...
         </td>
       </tr>
@@ -282,15 +278,13 @@
         nameEl.textContent = item.name;
         scoreEl.textContent = `${item.total_score} pts`;
         breakEl.innerHTML = `
-          <span class="badge badge-easy">Quiz: ${item.quiz_points} pts</span>
-          <span class="badge badge-cat">CTF: ${item.ctf_net} pts</span>
+          <span class="badge badge-cat">${item.ctf_solves_count || 0}/10 Solved</span>
         `;
       } else {
         nameEl.textContent = '-';
         scoreEl.textContent = '0 pts';
         breakEl.innerHTML = `
-          <span class="badge badge-easy">Quiz: 0</span>
-          <span class="badge badge-cat">CTF: 0</span>
+          <span class="badge badge-cat">0/10 Solved</span>
         `;
       }
     }
@@ -311,7 +305,7 @@
         // Render Table
         const tbody = document.getElementById('projectorTableBody');
         if (board.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:30px;">No pods registered yet. Join via pod login!</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:30px;">No pods registered yet. Join via pod login!</td></tr>`;
         } else {
           tbody.innerHTML = board.map(item => {
             let rankBadge = `#${item.rank}`;
@@ -333,8 +327,7 @@
                 <td style="${rankStyle}">${rankBadge}</td>
                 <td style="font-weight: 700; color: #fff; font-size: 1.25rem;">${escapeHtml(item.name)}</td>
                 <td style="color: var(--neon-green); font-weight: 900; font-size: 1.35rem;">${item.total_score} pts</td>
-                <td><span class="badge badge-easy" style="font-size:0.9rem;">${item.quiz_points} pts</span></td>
-                <td><span class="badge badge-cat" style="font-size:0.9rem;">${item.ctf_net} pts</span></td>
+                <td><span class="badge badge-cat" style="font-size:0.9rem;">${item.ctf_solves_count || 0}/10 Solved</span></td>
                 <td style="color: ${item.ctf_penalty > 0 ? 'var(--neon-amber)' : 'var(--text-muted)'};">-${item.ctf_penalty}</td>
                 <td>${vBadge}</td>
                 <td style="color: var(--text-muted); font-size:0.95rem;">${escapeHtml(lastAct)}</td>

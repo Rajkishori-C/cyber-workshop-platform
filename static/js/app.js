@@ -1116,7 +1116,7 @@ function renderCTF() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
-          FLAG CAPTURED
+          SOLVED (+${ch.points} PTS)
         </div>
 
         <div class="card-desc">
@@ -1130,13 +1130,13 @@ function renderCTF() {
             type="text" 
             class="flag-input" 
             id="flag-${escapeHtml(ch.id)}" 
-            placeholder="${isSolved ? 'Completed!' : 'CTF{...}'}" 
+            placeholder="${isSolved ? 'Solved!' : 'Enter your answer or command...'}" 
             ${isSolved ? 'disabled' : ''} 
             autocomplete="off"
             required
           >
           <button type="submit" class="btn-cyber btn-green btn-submit" ${isSolved ? 'disabled' : ''}>
-            ${isSolved ? 'Captured' : 'Submit Flag'}
+            ${isSolved ? 'Solved' : 'Submit Answer'}
           </button>
         </form>
       </div>

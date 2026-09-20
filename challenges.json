@@ -1,80 +1,182 @@
 [
   {
-    "id": "demo-01",
-    "title": "Demo: How Flags Work",
-    "category": "Demo / Warmup",
+    "id": "term-01",
+    "title": "Linux Hidden Files",
+    "category": "Linux Basics",
     "difficulty": "easy",
-    "points": 50,
+    "points": 20,
     "active": true,
-    "description": "Welcome to the Cybersecurity Assessment! A <b>flag</b> is a secret token that proves you solved a question. In this workshop, all flags follow the <code>CTF{...}</code> format.<br><br>To test your submission, copy this demo flag and paste it below:<br><br><div class='code-box'>CTF{welcome_to_cyber_workshop_2026}</div>",
-    "hint": "Highlight the text 'CTF{welcome_to_cyber_workshop_2026}', copy it, paste it into the answer box below, and click Submit Answer.",
-    "hint_cost": 0,
-    "flag": "CTF{welcome_to_cyber_workshop_2026}",
+    "description": "In Linux, configuration files and secret files that begin with a dot (<code>.</code>) are hidden from standard directory listings.<br><br>What command and flag did <b>Swapnil</b> demonstrate to list <u>all</u> files including hidden dotfiles in detailed long format?",
+    "hint": "Use the 'ls' command with options for long format (-l) and all files (-a).",
+    "hint_cost": 5,
+    "flag": "ls -la",
+    "aliases": [
+      "ls -la",
+      "ls -al",
+      "ls -l -a",
+      "ls -a -l",
+      "ls -a",
+      "ls -l"
+    ],
     "files": []
   },
   {
-    "id": "web-01",
-    "title": "Inspect the Page Source",
-    "category": "Web Security",
+    "id": "term-02",
+    "title": "Print Working Directory",
+    "category": "Linux Basics",
     "difficulty": "easy",
-    "points": 100,
+    "points": 20,
     "active": true,
-    "description": "Every webpage is sent directly to your browser as plaintext HTML. Web developers frequently leave developer notes or staging comments in the HTML markup that users don't normally see on screen.<br><br>Press <code>F12</code> (or <code>Ctrl+Shift+I</code> / Right-click and choose <b>Inspect</b>) to open your browser's Developer Tools. Inspect the HTML markup of this assessment page to find the hidden comment containing the flag!",
-    "hint": "In Chrome/Firefox/Edge, press F12, go to the 'Elements' tab, and look near the top under the <body> tag for an HTML comment <!-- FLAG: CTF{...} -->.",
-    "hint_cost": 15,
-    "flag": "CTF{h1dd3n_1n_th3_d0m_c0mm3nts}",
+    "description": "When navigating deeply nested directories in the terminal, it is easy to lose track of your location in the filesystem tree.<br><br>Which 3-letter Linux command prints the full absolute path of your <b>current working directory</b>?",
+    "hint": "Stands for 'Print Working Directory'.",
+    "hint_cost": 5,
+    "flag": "pwd",
+    "aliases": [
+      "pwd"
+    ],
+    "files": []
+  },
+  {
+    "id": "term-03",
+    "title": "Displaying File Contents",
+    "category": "Linux Basics",
+    "difficulty": "easy",
+    "points": 20,
+    "active": true,
+    "description": "To inspect scripts, log files, or text notes without opening an interactive editor, Linux provides a command to concatenate and display file contents directly on screen.<br><br>What standard 3-letter command is used to read and output a file's content (e.g. <code>___ notes.txt</code>)?",
+    "hint": "Short for concatenate. Also rhymes with hat.",
+    "hint_cost": 5,
+    "flag": "cat",
+    "aliases": [
+      "cat"
+    ],
+    "files": []
+  },
+  {
+    "id": "pipe-01",
+    "title": "Searching Logs with Patterns",
+    "category": "Terminal Piping",
+    "difficulty": "easy",
+    "points": 20,
+    "active": true,
+    "description": "In <b>Karthik's</b> session on log analysis, security analysts had to search through thousands of server log lines to isolate failed login attempts or errors.<br><br>Which command-line utility is used in Linux to search files or input streams for lines matching a specified pattern?",
+    "hint": "Global Regular Expression Print.",
+    "hint_cost": 5,
+    "flag": "grep",
+    "aliases": [
+      "grep"
+    ],
+    "files": []
+  },
+  {
+    "id": "pipe-02",
+    "title": "The Pipeline Operator",
+    "category": "Terminal Piping",
+    "difficulty": "easy",
+    "points": 20,
+    "active": true,
+    "description": "A core philosophy of Unix/Linux is combining small tools together. You can take the output of one command and immediately feed it as the input to a second command.<br><br>What single character / operator is used between commands to create a pipeline (e.g. <code>cat access.log ___ grep 404</code>)?",
+    "hint": "The vertical bar key, usually located above Enter (Shift + \\).",
+    "hint_cost": 5,
+    "flag": "|",
+    "aliases": [
+      "|",
+      "pipe",
+      "vertical bar",
+      "pipe operator"
+    ],
+    "files": []
+  },
+  {
+    "id": "cred-01",
+    "title": "Exposed Configuration Secrets",
+    "category": "Password Exposure",
+    "difficulty": "easy",
+    "points": 20,
+    "active": true,
+    "description": "In <b>Shree's</b> session on password exposures, a major cause of data breaches was developers accidentally committing environment config files containing database passwords and secret API keys to public Git repositories.<br><br>What is the standard name of this hidden configuration file (starting with a dot)?",
+    "hint": "It starts with a dot and is short for 'environment'.",
+    "hint_cost": 5,
+    "flag": ".env",
+    "aliases": [
+      ".env",
+      "env",
+      ".env file"
+    ],
+    "files": []
+  },
+  {
+    "id": "cred-02",
+    "title": "Insecure Password Storage",
+    "category": "Password Exposure",
+    "difficulty": "easy",
+    "points": 20,
+    "active": true,
+    "description": "Storing user passwords in clear, readable form without applying a cryptographic one-way hash function (like bcrypt or SHA-256) is a critical security vulnerability.<br><br>What is the cybersecurity term for passwords stored in unencrypted, readable text?",
+    "hint": "Two words or one compound word: opposite of encrypted text.",
+    "hint_cost": 5,
+    "flag": "plaintext",
+    "aliases": [
+      "plaintext",
+      "plain text",
+      "cleartext",
+      "clear text"
+    ],
+    "files": []
+  },
+  {
+    "id": "phish-01",
+    "title": "Lookalike Domain Spoofing",
+    "category": "Phishing Detection",
+    "difficulty": "easy",
+    "points": 20,
+    "active": true,
+    "description": "In <b>Harshit's</b> phishing session, attackers register domain names that look almost identical to genuine services by substituting letters with similar characters (e.g. <code>paypa1.com</code> or <code>c0llege.edu</code>) to deceive unsuspecting users.<br><br>What specific term describes this type of URL hijacking / domain attack?",
+    "hint": "Combines 'typo' with the word for occupying property illegally.",
+    "hint_cost": 5,
+    "flag": "typosquatting",
+    "aliases": [
+      "typosquatting",
+      "typo squatting",
+      "typo-squatting"
+    ],
+    "files": []
+  },
+  {
+    "id": "phish-02",
+    "title": "Spotting the Phishing Link",
+    "category": "Phishing Detection",
+    "difficulty": "easy",
+    "points": 20,
+    "active": true,
+    "description": "A student received an urgent email asking them to re-authenticate their account. Which of the following four URLs (<b>A</b>, <b>B</b>, <b>C</b>, or <b>D</b>) is the fraudulent phishing link?<br><br><pre class='code-box'>[A] https://portal.college.edu/login\n[B] https://c0llege.edu.verify-account.net/login\n[C] https://github.com/workshop/notes\n[D] https://mail.google.com</pre><br>Enter the single letter (<b>A</b>, <b>B</b>, <b>C</b>, or <b>D</b>).",
+    "hint": "Look closely at [B]: the actual domain is verify-account.net, not college.edu, and it uses 'c0llege' with a zero.",
+    "hint_cost": 5,
+    "flag": "B",
+    "aliases": [
+      "B",
+      "[B]",
+      "verify-account.net",
+      "c0llege.edu.verify-account.net",
+      "option B"
+    ],
     "files": []
   },
   {
     "id": "crypto-01",
-    "title": "The Base64 Transmission",
-    "category": "Cryptography & Ciphers",
+    "title": "The ROT-13 Cipher",
+    "category": "Cryptography",
     "difficulty": "easy",
-    "points": 100,
+    "points": 20,
     "active": true,
-    "description": "A communication node intercepted the following Base64-encoded transmission:<br><br><div class='code-box'>Q1RGe2Jhc2U2NF9kZWNvZGluZ19pc19lYXN5fQ==</div><br>Base64 is a common encoding scheme that converts binary data into ASCII characters using A-Z, a-z, 0-9, +, and /. Decode this string to reveal the secret flag.",
-    "hint": "In Linux/Termux: echo 'Q1RGe2Jhc2U2NF9kZWNvZGluZ19pc19lYXN5fQ==' | base64 -d. Or in Python: import base64; print(base64.b64decode('Q1RGe...').decode())",
-    "hint_cost": 20,
-    "flag": "CTF{base64_decoding_is_easy}",
-    "files": []
-  },
-  {
-    "id": "crypto-02",
-    "title": "Caesar's Cipher (ROT-13)",
-    "category": "Cryptography & Ciphers",
-    "difficulty": "medium",
-    "points": 150,
-    "active": true,
-    "description": "Julius Caesar encrypted confidential military orders by rotating letters of the alphabet by a fixed distance. The text below was encrypted using <b>ROT-13</b> (each letter shifted forward by 13 positions):<br><br><div class='code-box'>PGS{ebg13_pvcure_fhpprff_2026}</div><br>Rotate each letter by 13 positions (for example: P rotates 13 back to C, G rotates to T, S rotates to F) to uncover the flag.",
-    "hint": "In Linux/Termux: echo 'PGS{ebg13_pvcure_fhpprff_2026}' | tr 'A-Za-z' 'N-ZA-Mn-za-m'",
-    "hint_cost": 25,
-    "flag": "CTF{rot13_cipher_success_2026}",
-    "files": []
-  },
-  {
-    "id": "linux-01",
-    "title": "Malicious Server Log",
-    "category": "Linux & Commands",
-    "difficulty": "easy",
-    "points": 100,
-    "active": true,
-    "description": "Security analysts detected an intrusion attempt on our web server. Below is the relevant excerpt from the access log:<br><br><pre class='code-box'>192.168.1.15 - - [16/Sep/2026:10:12:01] \"GET /index.html HTTP/1.1\" 200 4210\\n192.168.1.15 - - [16/Sep/2026:10:12:04] \"GET /css/style.css HTTP/1.1\" 200 1420\\n192.168.1.99 - - [16/Sep/2026:10:12:18] \"POST /cgi-bin/test.sh?cmd=CTF{grep_finds_the_needle_in_haystack} HTTP/1.1\" 200 180\\n192.168.1.15 - - [16/Sep/2026:10:12:22] \"GET /favicon.ico HTTP/1.1\" 404 280</pre><br>Identify the malicious request and extract the embedded flag.",
-    "hint": "Look at line 3: the attacker sent a POST request to /cgi-bin/test.sh with a cmd parameter containing the flag.",
-    "hint_cost": 15,
-    "flag": "CTF{grep_finds_the_needle_in_haystack}",
-    "files": []
-  },
-  {
-    "id": "logic-01",
-    "title": "Binary Byte Stream",
-    "category": "Cyber Logic",
-    "difficulty": "medium",
-    "points": 150,
-    "active": true,
-    "description": "Computers store characters as 8-bit binary numbers. An emergency signal transmitted the following sequence of ASCII bytes:<br><br><div class='code-box'>01000011 01010100 01000110 01111011 01100010 01101001 01110100 01110011 01111101</div><br>Translate each 8-bit binary group into its ASCII character to recover the flag (e.g. <code>01000011</code> = 67 = 'C').",
-    "hint": "01000011='C', 01010100='T', 01000110='F', 01111011='{', 01100010='b', 01101001='i', 01110100='t', 01110011='s', 01111101='}'. The flag is CTF{bits}.",
-    "hint_cost": 25,
-    "flag": "CTF{bits}",
+    "description": "In classic substitution ciphers, ROT-13 rotates each letter forward by 13 positions in the 26-letter alphabet.<br><br>Decode the 5-letter ciphertext below using this letter shift rule:<br><div class='code-box'><b>PLORE</b></div><br>Letter Shift Key: <code>P \u2192 C</code>, <code>L \u2192 Y</code>, <code>O \u2192 B</code>, <code>R \u2192 E</code>, <code>E \u2192 R</code>.<br><br>What 5-letter English tech word does it decode to?",
+    "hint": "Apply the shift key to each letter in PLORE: P becomes C, L becomes Y, O becomes B, R becomes E, E becomes R.",
+    "hint_cost": 5,
+    "flag": "cyber",
+    "aliases": [
+      "cyber",
+      "CYBER"
+    ],
     "files": []
   }
 ]
